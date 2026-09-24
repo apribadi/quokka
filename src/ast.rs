@@ -21,8 +21,8 @@ pub struct Binding {
 pub enum Expr {
   ConstBool(bool),                               // True
   ConstI64(i64),                                 // 3
-  LogAnd(Box<(Expr, Expr)>),                     // a && b
-  LogOr(Box<(Expr, Expr)>),                      // a || b
+  LogAnd(Box<(Expr, Expr)>),                     // a and b
+  LogOr(Box<(Expr, Expr)>),                      // a or b
   Op1(Box<(Op1, Expr)>),                         // - a
   Op2(Box<(Op1, Expr, Expr)>),                   // a + b
   GetField(Box<(Expr, Field)>),                  // a.foo
@@ -43,45 +43,45 @@ pub enum Expr {
 }
 
 pub enum Stmt {
-  ExprList(Box<[Expr]>),                   // a, b
-  Let(Box<(Box<[Binding]>, Box<[Expr]>)>), // let x, y = a, b
-  DefLocal(Box<(Local, Expr)>),            // let mutable x = a
-  SetLocal(Box<(Local, Expr)>),            // x = 1
-  SetField(Box<(Expr, Field, Expr)>),      // a.foo = 1
-  SetIndex(Box<(Expr, Expr, Expr)>),       // a[b] = c
-  AugLocal(Box<(Local, Op2, Expr)>),       // x += a
-  AugField(Box<(Expr, Field, Op2, Expr)>), // a.foo += b
-  AugIndex(Box<(Expr, Expr, Op2, Expr)>),  // a[b] += c
-  Break(Box<[Expr]>),                      // break a, b
-  Continue,                                // continue
-  Return(Box<[Expr]>),                     // return a, b
-  While(Box<(Expr, Box<[Stmt]>)>),         // while (a) { ... }
+  ExprList(Box<[Expr]>),                           // a, b
+  Let(Box<(Box<[Binding]>, Box<[Expr]>)>),         // let x, y = a, b
+  DefLocal(Box<(Local, Expr)>),                    // let mutable x = a
+  SetLocal(Box<(Local, Expr)>),                    // x = 1
+  SetField(Box<(Expr, Field, Expr)>),              // a.foo = 1
+  SetIndex(Box<(Expr, Expr, Expr)>),               // a[b] = c
+  SetLocalCompound(Box<(Local, Op2, Expr)>),       // x += a
+  SetFieldCompound(Box<(Expr, Field, Op2, Expr)>), // a.foo += b
+  SetIndexCompound(Box<(Expr, Expr, Op2, Expr)>),  // a[b] += c
+  Break(Box<[Expr]>),                              // break a, b
+  While(Box<(Expr, Box<[Stmt]>)>),                 // while (a) { ... }
+  Continue,                                        // continue
+  Ret(Box<[Expr]>),                                // return a, b
 }
 
 #[derive(Clone, Copy)]
 pub enum Op1 {
-  Dec,
-  Inc,
-  Neg,
-  Not,
+  Dec, // x -- OR -- x
+  Inc, // x ++ OR ++ x
+  Neg, // - a
+  Not, // ! a
 }
 
 #[derive(Clone, Copy)]
 pub enum Op2 {
-  Add,
-  BitAnd,
-  BitOr,
-  BitXor,
-  CmpEq,
-  CmpGe,
-  CmpGt,
-  CmpLe,
-  CmpLt,
-  CmpNe,
-  Div,
-  Mul,
-  Rem,
-  Shl,
-  Shr,
-  Sub,
+  Add,    // a + b
+  BitAnd, // a & b
+  BitOr,  // a | b
+  BitXor, // a ^ b
+  CmpEq,  // a == b
+  CmpGe,  // a >= b
+  CmpGt,  // a > b
+  CmpLe,  // a <= b
+  CmpLt,  // a < b
+  CmpNe,  // a != b
+  Div,    // a / b
+  Mul,    // a * b
+  Rem,    // a % b
+  Shl,    // a << b
+  Shr,    // a >> b
+  Sub,    // a - b
 }
