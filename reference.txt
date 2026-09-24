@@ -1,0 +1,10 @@
+- Multi-return Function Call (Shivers, Fisher)
+- Omnidirectional type inference for ML (O'Brien, Remy, Scherer)
+
+- Standard ML
+- Go
+- Kotlin
+- Koka
+- OCaml
+- Effekt
+- Java

@@ -1,0 +1,115 @@
+# non-local control flow out of local closures
+
+CF
+
+- Ruby
+- Go
+- Kotlin
+
+example
+
+  fun ... ( ... ) {
+    ...
+    for x in iter(array) {
+      ...
+      break
+      ...
+      continue
+      ...
+      return
+      ...
+    }
+    ...
+  }
+
+  fun array_iter[A, K](x Array[A]) -> (local (A) -> () | ... K) -> () | ... K {
+    fun (local yield) {
+      let n = array_len(x)
+      var i = 0
+      while i < n {
+        case yield(x[i ++]) {
+          @ => {
+          }
+          ... # forward all outer continuations?
+        }
+      }
+    }
+  }
+
+  fun find[A]((local (A) -> () | @outer.some A) -> () | @outer.some A, (A) -> (Bool)) -> @none | @some A
+
+  fun find(it, f) {
+    for x in it {
+      if f(x) {
+        return @some x
+      }
+    }
+    return @none
+  }
+
+  fun array_find(x, f) {
+    return find(array_iter(x), f)
+  }
+
+  fun exists[A]((local (A) -> () | @outer Bool) -> () | @outer Bool, (A) -> (Bool)) -> Bool
+
+  fun exists(it, f) {
+    for x in it {
+      if f(x) {
+        return true
+      }
+    }
+    return false
+  }
+
+  fun filter(it, f) {
+    fun (local yield) {
+      for x in it {
+        if f(x) {
+          case yield(x) {
+            @ => {
+              continue
+            }
+            ...
+          }
+        }
+      }
+    }
+  }
+
+  fun count_up(local yield) {
+    var i = 0
+    loop { yield(i ++) }
+  }
+
+
+  fun foo(f (Int) -> Bool) -> Int
+
+  fun foo(f) {
+    for x in count_up {
+      if f(x) {
+        break x
+      }
+    }
+  }
+
+  fun bar[K]((local (Int) -> () | @outer.break Int) -> @outer.break Int | K..., f (Int) -> (Bool)) -> Int | K...
+
+  fun bar(it, f) {
+    for x in it {
+      if f(x) {
+        break x
+      }
+    }
+  }
+
+The use of the `for ... in ... { ... }` syntax means that in the loop body,
+
+- `continue` targets to the "normal" continuation with the null label!
+- `break` targets the loop exit in the outer scope. the `break` corresponds
+  with a label that is un-nameable.
+
+Similarly, the `fun ... ( ... ) { ... }` means that in the function body, we
+have a label can be targeted by a `return`. In the inner loop body context, a
+`return` is translated into a return to an un-nameable label.  The outer return
+continuation is passed into `iter` and `yield` as that un-nameable label.

@@ -1,0 +1,32 @@
+[package]
+authors = ["Aaron Pribadi <aaron.pribadi@gmail.com>"]
+edition = "2024"
+license = "Artistic-2.0"
+name = "quokka"
+version = "0.1.0"
+
+[lints.rust]
+elided_lifetimes_in_paths = "warn"
+non_ascii_idents = "warn"
+non_camel_case_types = "allow"
+non_upper_case_globals = "allow"
+private_bounds = "allow"
+trivial_numeric_casts = "warn"
+# unreachable_pub = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+# unused_lifetimes = "warn"
+# unused_qualifications = "warn"
+# unused_results = "warn"
+unused = "allow"
+
+[features]
+
+[dependencies]
+hashbrown = "0.17.1"
+
+[dev-dependencies]
+expect-test = "1.5.1"
+
+[profile.release]
+
+[profile.dev]
