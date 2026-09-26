@@ -19,26 +19,23 @@ pub struct Binding {
 }
 
 pub enum Expr {
-  ConstBool(bool),                               // True
-  ConstI64(i64),                                 // 3
-  LogAnd(Box<(Expr, Expr)>),                     // a and b
-  LogOr(Box<(Expr, Expr)>),                      // a or b
-  Op1(Box<(Op1, Expr)>),                         // - a
-  Op2(Box<(Op1, Expr, Expr)>),                   // a + b
-  GetField(Box<(Expr, Field)>),                  // a.foo
-  GetIndex(Box<(Expr, Expr)>),                   // a[b]
-  PreLocal(Box<(Op1, Local)>),                   // ++ x
-  PreField(Box<(Op1, Expr, Field)>),             // ++ a.foo
-  PreIndex(Box<(Op1, Expr, Expr)>),              // ++ a[b]
-  PostLocal(Box<(Local, Op1)>),                  // x ++
-  PostField(Box<(Expr, Field, Op1)>),            // a.foo ++
-  PostIndex(Box<(Expr, Expr, Op1)>),             // a[b] ++
-  If(Box<(Expr, Box<[Stmt]>)>),                  // if a { ... }
-  IfElse(Box<(Expr, Box<[Stmt]>, Box<[Stmt]>)>), // if a { ... } else { ... }
-  Ternary(Box<(Expr, Expr, Expr)>),              // a ? b : c
-  Var(Symbol),                                   // x
-  Call(Box<(Expr, Box<[Expr]>)>),                // a(b, c)
-  Loop(Box<[Stmt]>),                             // loop { ... }
+  ConstBool(bool),                                  // True
+  ConstI64(i64),                                    // 3
+  LogAnd(Box<(Expr, Expr)>),                        // a && b
+  LogOr(Box<(Expr, Expr)>),                         // a || b
+  Op1(Box<(Op1, Expr)>),                            // - a
+  Op2(Box<(Op1, Expr, Expr)>),                      // a + b
+  GetField(Box<(Expr, Field)>),                     // a.foo
+  GetIndex(Box<(Expr, Expr)>),                      // a[b]
+  IncDecLocal(Box<(IncDec, PrePost, Local)>),       // ++ x OR x ++
+  IncDecField(Box<(IncDec, PrePost, Expr, Field)>), // ++ a.foo OR a.foo ++
+  IncDecIndex(Box<(IncDec, PrePost, Expr, Expr)>),  // ++ a[b] OR a[b] ++
+  If(Box<(Expr, Box<[Stmt]>)>),                     // if (a) { ... }
+  IfElse(Box<(Expr, Box<[Stmt]>, Box<[Stmt]>)>),    // if (a) { ... } else { ... }
+  Select(Box<(Expr, Expr, Expr)>),                  // a ? b : c
+  Var(Symbol),                                      // x
+  Call(Box<(Expr, Box<[Expr]>)>),                   // a(b, c)
+  Loop(Box<[Stmt]>),                                // loop { ... }
   Fail,
 }
 
@@ -59,9 +56,19 @@ pub enum Stmt {
 }
 
 #[derive(Clone, Copy)]
+pub enum IncDec {
+  Inc, // ++
+  Dec, // --
+}
+
+#[derive(Clone, Copy)]
+pub enum PrePost {
+  Pre,
+  Post,
+}
+
+#[derive(Clone, Copy)]
 pub enum Op1 {
-  Dec, // x -- OR -- x
-  Inc, // x ++ OR ++ x
   Neg, // - a
   Not, // ! a
 }
