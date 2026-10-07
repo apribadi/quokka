@@ -1,0 +1,17 @@
+use crate::token::Token;
+
+grammar;
+
+pub Add: () = {
+  "+" => (),
+}
+
+extern {
+  type Location = usize;
+  
+  type Error = ();
+
+  enum Token {
+    "+" => Token::Add,
+  }
+}

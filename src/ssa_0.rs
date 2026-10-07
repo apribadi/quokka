@@ -10,6 +10,17 @@ type Label = usize;
 type Local = usize;
 type Value = usize;
 
+pub struct Module {
+  pub fun_defs: Box<[FunDef]>,
+  pub code: Box<[Inst]>,
+}
+
+pub struct FunDef {
+  pub name: Symbol,
+  pub pos: usize,
+  pub len: usize,
+}
+
 #[derive(Clone, Copy)]
 pub enum Inst {
   Label(Arity, Arity),

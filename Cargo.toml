@@ -5,6 +5,23 @@ license = "Artistic-2.0"
 name = "quokka"
 version = "0.1.0"
 
+[features]
+
+[build-dependencies]
+lalrpop = "0.23.1"
+
+[dependencies]
+hashbrown = "0.17.1"
+lalrpop-util = "0.23.1"
+logos = "0.16.1"
+
+[dev-dependencies]
+expect-test = "1.5.1"
+
+[profile.release]
+
+[profile.dev]
+
 [lints.rust]
 elided_lifetimes_in_paths = "warn"
 non_ascii_idents = "warn"
@@ -19,14 +36,3 @@ unsafe_op_in_unsafe_fn = "deny"
 # unused_results = "warn"
 unused = "allow"
 
-[features]
-
-[dependencies]
-hashbrown = "0.17.1"
-
-[dev-dependencies]
-expect-test = "1.5.1"
-
-[profile.release]
-
-[profile.dev]
