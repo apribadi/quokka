@@ -1,4 +1,5 @@
 pub(crate) use hashbrown::hash_map::HashMap;
+pub(crate) use std::fmt::Write;
 
 pub(crate) fn concat<T>(x: Box<[T]>, y: Box<[T]>) {
   let mut a = Vec::<T>::from(x);

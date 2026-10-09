@@ -1,19 +1,35 @@
 use logos::Logos;
+use logos::Lexer;
+
+pub fn scan(source: &str) -> impl Iterator<Item = Result<(usize, Token, usize), ()>> {
+  Token::lexer(source).spanned().map(|(token, span)| 
+    match token {
+      Err(()) => Err(()),
+      Ok(token) => Ok((span.start, token, span.end)),
+    }
+  )
+}
+
+fn is_attached<'a>(t: &Lexer<'a, Token>) -> bool {
+  t.extras != t.span().start
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[derive(Logos)]
-#[logos(utf8 = false)]
+#[logos(extras = usize)]
+#[logos(skip(r"([ \t\n]+|;[^\n]*)+", |t| t.extras = t.span().end))]
+#[logos(subpattern symbolic = r"[\-\^#!$%&*+/<=>?@_|~[:alnum:]]")]
 pub enum Token {
   #[token(r"!")] Not,
   #[token(r"$")] Dollar,
   #[token(r"%")] Rem,
   #[token(r"&")] BitAnd,
-  #[token(r"(")] LParen,
+  #[token(r"(", is_attached)] LParen(bool),
   #[token(r")")] RParen,
   #[token(r"*")] Mul,
   #[token(r"+")] Add,
   #[token(r",")] Comma,
-  #[token(r"-")] Hyphen,
+  #[token(r"-")] Sub,
   #[token(r".")] Dot,
   #[token(r"/")] Div,
   #[token(r":")] Colon,
@@ -57,119 +73,140 @@ pub enum Token {
   #[token(r"true")] True,
   #[token(r"while")] While,
   #[regex(r"-*[[:alpha:]][\-[:alnum:]]*", priority = 1)] Symbol,
-
-  #[regex(r"([[:space:]]+|;[^\n]*)+")]
-  #[regex(r"[!$%&*+\-/<=>?@\^_|~[:alnum:]]+", |_| false, priority = 0)]
-  #[regex(r"\.+", |_| false, priority = 0)]
-  #[regex(r":+", |_| false, priority = 0)]
-  Space,
-
+  #[regex(r"[\-+]?(0|[1-9][0-9]*)")] Int,
+  #[regex(r"\.+|:+|(?&symbolic)+|[\-+]?[0-9](\.|:|(?&symbolic))*", |_| false, priority = 0)] Malformed,
   /*
-  Number,
   DoubleQuote,
   */
 }
 
-impl std::fmt::Display for Token {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:?}", self)
+#[test]
+fn test_app() {
+  use std::fmt::Write;
+  let mut o = String::new();
+  let mut t = Token::lexer("true(false) true (false)");
+  while let Some(tok) = t.next() {
+    write!(&mut o, "{:?} {:?}\n", tok, t.slice());
   }
+  expect_test::expect![[r#"
+      Ok(True) "true"
+      Ok(LParen(true)) "("
+      Ok(False) "false"
+      Ok(RParen) ")"
+      Ok(True) "true"
+      Ok(LParen(false)) "("
+      Ok(False) "false"
+      Ok(RParen) ")"
+  "#]].assert_eq(o.drain(..).as_str());
 }
 
 #[test]
-fn test_foo() {
+fn test_bad() {
   use std::fmt::Write;
   let mut o = String::new();
   let mut t =
     Token::lexer(
-b"
-: :: :::
--foo-!!
-!-foo
----0
-++ -- foo bar fun ; blah
-:foo .bar
--=
----foo
-. .. ... ....
-foo-bar
-foo+++bar +++
-foo---bar ---
-foo^^^bar ^^^
-foo&&&bar &&&
-foo|||bar |||
-
-  qux
-+; blah"
+"
+0:0:0
+foo.0.0
+bar.+0.0
+0_0
+0_0.abc
+100
+-100
++100
+001
+000
+-001
+foo+++bar
+0.0.0
++0xcafe
+-0
+a.b
+a.++b
+0.++b
+;"
       );
   while let Some(tok) = t.next() {
-    write!(&mut o, "{} {:?}\n", tok, str::from_utf8(t.slice()).unwrap());
+    write!(&mut o, "{:?} {:?}\n", tok, t.slice());
   }
   expect_test::expect![[r#"
-      Ok(Space) "\n"
-      Ok(Colon) ":"
-      Ok(Space) " "
-      Ok(BadColons) "::"
-      Ok(Space) " "
-      Ok(BadColons) ":::"
-      Ok(Space) "\n"
-      Err(()) "-foo-!!"
-      Ok(Space) "\n"
-      Err(()) "!-foo"
-      Ok(Space) "\n"
-      Err(()) "---0"
-      Ok(Space) "\n"
-      Ok(Inc) "++"
-      Ok(Space) " "
-      Ok(Dec) "--"
-      Ok(Space) " "
+      Err(()) "0:0:0"
       Ok(Symbol) "foo"
-      Ok(Space) " "
-      Ok(Symbol) "bar"
-      Ok(Space) " "
-      Ok(Fun) "fun"
-      Ok(Space) " ; blah\n"
-      Ok(StaticField) ":foo"
-      Ok(Space) " "
-      Ok(Field) ".bar"
-      Ok(Space) "\n"
-      Err(()) "-="
-      Ok(Space) "\n"
-      Ok(Symbol) "---foo"
-      Ok(Space) "\n"
       Ok(Dot) "."
-      Ok(Space) " "
-      Ok(BadDots) ".."
-      Ok(Space) " "
-      Ok(DotDotDot) "..."
-      Ok(Space) " "
-      Ok(BadDots) "...."
-      Ok(Space) "\n"
-      Ok(Symbol) "foo-bar"
-      Ok(Space) "\n"
+      Err(()) "0.0"
+      Ok(Symbol) "bar"
+      Ok(Dot) "."
+      Err(()) "+0.0"
+      Err(()) "0_0"
+      Err(()) "0_0.abc"
+      Ok(Int) "100"
+      Ok(Int) "-100"
+      Ok(Int) "+100"
+      Err(()) "001"
+      Err(()) "000"
+      Err(()) "-001"
       Err(()) "foo+++bar"
-      Ok(Space) " "
-      Err(()) "+++"
-      Ok(Space) "\n"
-      Ok(Symbol) "foo---bar"
-      Ok(Space) " "
-      Err(()) "---"
-      Ok(Space) "\n"
-      Err(()) "foo^^^bar"
-      Ok(Space) " "
-      Err(()) "^^^"
-      Ok(Space) "\n"
-      Err(()) "foo&&&bar"
-      Ok(Space) " "
-      Err(()) "&&&"
-      Ok(Space) "\n"
-      Err(()) "foo|||bar"
-      Ok(Space) " "
-      Err(()) "|||"
-      Ok(Space) "\n\n  "
-      Ok(Symbol) "qux"
-      Ok(Space) "\n"
+      Err(()) "0.0.0"
+      Err(()) "+0xcafe"
+      Ok(Int) "-0"
+      Ok(Symbol) "a"
+      Ok(Dot) "."
+      Ok(Symbol) "b"
+      Ok(Symbol) "a"
+      Ok(Dot) "."
+      Err(()) "++b"
+      Err(()) "0.++b"
+  "#]].assert_eq(o.drain(..).as_str());
+}
+
+#[test]
+fn test_fib() {
+  use std::fmt::Write;
+  let mut o = String::new();
+  let mut t =
+    Token::lexer(
+"
+fun fib(n) {
+  if (n <= 1) { return 1 }
+  return fib(n - 1) + fib(n - 2) ; recurse
+}
+"
+      );
+  while let Some(tok) = t.next() {
+    write!(&mut o, "{:?} {:?}\n", tok, t.slice());
+  }
+  expect_test::expect![[r#"
+      Ok(Fun) "fun"
+      Ok(Symbol) "fib"
+      Ok(LParen(true)) "("
+      Ok(Symbol) "n"
+      Ok(RParen) ")"
+      Ok(LBrace) "{"
+      Ok(If) "if"
+      Ok(LParen(false)) "("
+      Ok(Symbol) "n"
+      Ok(CmpLe) "<="
+      Ok(Int) "1"
+      Ok(RParen) ")"
+      Ok(LBrace) "{"
+      Ok(Return) "return"
+      Ok(Int) "1"
+      Ok(RBrace) "}"
+      Ok(Return) "return"
+      Ok(Symbol) "fib"
+      Ok(LParen(true)) "("
+      Ok(Symbol) "n"
+      Ok(Sub) "-"
+      Ok(Int) "1"
+      Ok(RParen) ")"
       Ok(Add) "+"
-      Ok(Space) "; blah\n"
+      Ok(Symbol) "fib"
+      Ok(LParen(true)) "("
+      Ok(Symbol) "n"
+      Ok(Sub) "-"
+      Ok(Int) "2"
+      Ok(RParen) ")"
+      Ok(RBrace) "}"
   "#]].assert_eq(o.drain(..).as_str());
 }

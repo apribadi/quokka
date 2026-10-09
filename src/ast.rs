@@ -2,10 +2,12 @@ type Symbol = usize;
 type Field = usize;
 type Local = usize;
 
+#[derive(Debug)]
 pub enum Item {
   Fun(Box<Fun>),
 }
 
+#[derive(Debug)]
 pub struct Fun {
   pub name: Symbol,
   pub args: Box<[Binding]>,
@@ -14,17 +16,19 @@ pub struct Fun {
 
 // TODO: add optional type ascription
 
+#[derive(Debug)]
 pub struct Binding {
   pub name: Option<Symbol>,
 }
 
+#[derive(Debug)]
 pub enum Expr {
   ConstBool(bool),                               // true OR false
   ConstI64(i64),                                 // 3
   LogAnd(Box<(Expr, Expr)>),                     // a && b
   LogOr(Box<(Expr, Expr)>),                      // a || b
   Op1(Box<(Op1, Expr)>),                         // - a
-  Op2(Box<(Op1, Expr, Expr)>),                   // a + b
+  Op2(Box<(Op2, Expr, Expr)>),                   // a + b
   GetField(Box<(Expr, Field)>),                  // a.foo
   GetIndex(Box<(Expr, Expr)>),                   // a[b]
   IncDecLocal(Box<(IncDec, PrePost, Local)>),    // ++ x OR x ++
@@ -37,6 +41,7 @@ pub enum Expr {
   Fail,
 }
 
+#[derive(Debug)]
 pub enum Stmt {
   ExprList(Box<[Expr]>),                           // a, b
   Let(Box<(Box<[Binding]>, Box<[Expr]>)>),         // let x, y = a, b
@@ -52,24 +57,28 @@ pub enum Stmt {
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum IncDec {
   Inc, // ++
   Dec, // --
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum PrePost {
   Pre,
   Post,
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum Op1 {
   Neg, // - a
   Not, // ! a
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum Op2 {
   Add,    // a + b
   BitAnd, // a & b

@@ -1,10 +1,33 @@
 use crate::token::Token;
+use crate::ast::Op2;
+use crate::ast::Expr;
 
 grammar;
 
-pub Add: () = {
-  "+" => (),
-}
+pub EXPR: Expr = {
+  #[precedence(level = "0")]
+  FALSE => Expr::ConstBool(false),
+  TRUE => Expr::ConstBool(true),
+  INT => Expr::ConstI64(0),
+
+  #[precedence(level = "1")]
+  <f:EXPR> LPAREN_ATTACHED <x:EXPR> RPAREN => Expr::Call(Box::new((f, vec![x].into_boxed_slice()))),
+
+  #[precedence(level = "2")]
+  #[assoc(side = "left")]
+  <x:EXPR> MUL <y:EXPR> => Expr::Op2(Box::new((Op2::Mul, x, y))),
+  <x:EXPR> DIV <y:EXPR> => Expr::Op2(Box::new((Op2::Div, x, y))),
+
+  #[precedence(level = "3")]
+  #[assoc(side = "left")]
+  <x:EXPR> ADD <y:EXPR> => Expr::Op2(Box::new((Op2::Add, x, y))),
+  <x:EXPR> SUB <y:EXPR> => Expr::Op2(Box::new((Op2::Sub, x, y))),
+};
+
+LPAREN = {
+  LPAREN_ATTACHED,
+  LPAREN_DETACHED,
+};
 
 extern {
   type Location = usize;
@@ -12,6 +35,15 @@ extern {
   type Error = ();
 
   enum Token {
-    "+" => Token::Add,
+    ADD => Token::Add,
+    SUB => Token::Sub,
+    MUL => Token::Mul,
+    DIV => Token::Div,
+    LPAREN_ATTACHED => Token::LParen(true),
+    LPAREN_DETACHED => Token::LParen(false),
+    RPAREN => Token::RParen,
+    TRUE=> Token::True,
+    FALSE=> Token::False,
+    INT=> Token::Int,
   }
 }
