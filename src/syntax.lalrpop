@@ -11,9 +11,10 @@ grammar<'a>(source: &'a str);
 pub STMT: Stmt<'a> = {
   LET SYMBOL EQUAL <x:EXPR> =>
     Stmt::Let(Box::new((vec![].into_boxed_slice(), vec![].into_boxed_slice()))),
-  EXPR_1 LBRACKET_ATTACHED EXPR RBRACKET EQUAL EXPR =>
-    Stmt::Continue,
-  <s:SYMBOL> EQUAL <x:EXPR> => Stmt::SetLocal(Box::new((s, x))),
+  <x:EXPR_1> LBRACKET_ATTACHED <y:EXPR> RBRACKET EQUAL <z:EXPR> =>
+    Stmt::SetIndex(Box::new((x, y, z))),
+  <s:SYMBOL> EQUAL <x:EXPR> =>
+    Stmt::SetLocal(Box::new((s, x))),
   EXPR =>
     Stmt::ExprList(vec![<>].into_boxed_slice()),
 }
@@ -33,6 +34,7 @@ EXPR_0: Expr<'a> = {
 EXPR_1: Expr<'a> = {
   EXPR_0,
   <x:EXPR_1> LBRACKET_ATTACHED <y:EXPR> RBRACKET => Expr::GetIndex(Box::new((x, y))),
+  <x:EXPR_1> DOT_ATTACHED <s:SYMBOL_ATTACHED> => Expr::GetField(Box::new((x, s))),
 }
 
 EXPR_2: Expr<'a> = {
@@ -66,15 +68,11 @@ EXPR_6: Expr<'a> = {
   <x:EXPR_6> SUB <y:EXPR_5> => Expr::Op2(Box::new((Op2::Sub, x, y))),
 }
 
-LPAREN = {
-  LPAREN_ATTACHED,
-  LPAREN_DETACHED,
-}
+LPAREN = { LPAREN_ATTACHED, LPAREN_DETACHED, }
 
-LBRACKET = {
-  LBRACKET_ATTACHED,
-  LBRACKET_DETACHED,
-}
+LBRACKET = { LBRACKET_ATTACHED, LBRACKET_DETACHED, }
+
+SYMBOL: &'a str = { SYMBOL_ATTACHED, SYMBOL_DETACHED, }
 
 extern {
   type Location = usize;
@@ -82,28 +80,63 @@ extern {
   type Error = ();
 
   enum Token<'a> {
-    INC => Token::Inc,
-    DEC => Token::Dec,
-    ADD => Token::Add,
-    SUB => Token::Sub,
-    MUL => Token::Mul,
-    DIV => Token::Div,
     NOT => Token::Not,
+    DOLLAR => Token::Dollar,
+    REM => Token::Rem,
+    BIT_AND => Token::BitAnd,
     LPAREN_ATTACHED => Token::LParen(true),
     LPAREN_DETACHED => Token::LParen(false),
     RPAREN => Token::RParen,
+    MUL => Token::Mul,
+    ADD => Token::Add,
+    COMMA => Token::Comma,
+    SUB => Token::Sub,
+    DOT_ATTACHED => Token::Dot(true),
+    DOT_DETACHED => Token::Dot(false),
+    DIV => Token::Div,
+    COLON => Token::Colon,
+    CMP_LT => Token::CmpLt,
+    EQUAL => Token::Equal,
+    CMP_GT => Token::CmpGt,
+    Query => Token::Query,
+    AT => Token::At,
     LBRACKET_ATTACHED => Token::LBracket(true),
     LBRACKET_DETACHED => Token::LBracket(false),
     RBRACKET => Token::RBracket,
+    BIT_XOR => Token::BitXor,
+    UNDERSCORE => Token::Underscore,
     LBRACE => Token::LBrace,
+    BIT_OR => Token::BitOr,
     RBRACE => Token::RBrace,
-    EQUAL => Token::Equal,
-    TRUE => Token::True,
+    TILDE => Token::Tilde,
+    SHL => Token::Shl,
+    SHR => Token::Shr,
+    LOG_AND => Token::LogAnd,
+    LOG_OR => Token::LogOr,
+    INC => Token::Inc,
+    DEC => Token::Dec,
+    CMP_EQ => Token::CmpEq,
+    CMP_NE => Token::CmpNe,
+    CMP_LE => Token::CmpLe,
+    CMP_GE => Token::CmpGe,
+    DOT_DOT_DOT => Token::DotDotDot,
+    BREAK => Token::Break,
+    CONTINUE => Token::Continue,
+    DO => Token::Do,
+    ELIF => Token::Elif,
+    ELSE => Token::Else,
     FALSE => Token::False,
+    FOR => Token::For,
+    FUN => Token::Fun,
     IF => Token::If,
     LET => Token::Let,
     LOOP => Token::Loop,
+    MUTABLE => Token::Mutable,
+    RETURN => Token::Return,
+    TRUE => Token::True,
+    WHILE => Token::While,
+    SYMBOL_ATTACHED => Token::Symbol((true, <&'a str>)),
+    SYMBOL_DETACHED => Token::Symbol((false, <&'a str>)),
     INT => Token::Int(<i64>),
-    SYMBOL => Token::Symbol(<&'a str>),
   }
 }

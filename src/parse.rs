@@ -15,10 +15,10 @@ fn test_parse_expr() {
   let mut o = String::new();
   let ast =
     parse_stmt(
-      "- loop {} + 2"
+      "f.foo[1][2] = 3 + 4"
       );
   write!(&mut o, "{:?}\n", ast);
   expect_test::expect![[r#"
-      Ok(ExprList([Op2((Add, Op1((Neg, Loop([]))), ConstI64(2)))]))
+      Ok(SetIndex((GetIndex((GetField((Var("f"), "foo")), ConstI64(1))), ConstI64(2), Op2((Add, ConstI64(3), ConstI64(4))))))
   "#]].assert_eq(o.drain(..).as_str());
 }

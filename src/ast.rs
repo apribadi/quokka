@@ -12,11 +12,19 @@ pub struct Fun<'a> {
   pub body: Box<[Stmt<'a>]>,
 }
 
-// TODO: add optional type ascription
-
 #[derive(Debug)]
-pub struct Binding<'a> {
-  pub name: Option<Symbol<'a>>,
+pub enum Stmt<'a> {
+  ExprList(Box<[Expr<'a>]>),                          // a, b
+  Let(Box<(Box<[Binding<'a>]>, Box<[Expr<'a>]>)>),    // let x, y = a, b
+  DefLocal(Box<(Symbol<'a>, Expr<'a>)>),              // let mutable x = a
+  SetLocal(Box<(Symbol<'a>, Expr<'a>)>),              // x = 1
+  SetField(Box<(Expr<'a>, Symbol<'a>, Expr<'a>)>),    // a.foo = 1
+  SetIndex(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),      // a[b] = c
+  SetLocalCompound(Box<(Symbol<'a>, Op2, Expr<'a>)>), // x += a
+  Break(Box<[Expr<'a>]>),                             // break a, b
+  While(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),            // while (a) { ... }
+  Continue,                                           // continue
+  Ret(Box<[Expr<'a>]>),                               // return a, b
 }
 
 #[derive(Debug)]
@@ -39,19 +47,11 @@ pub enum Expr<'a> {
   Fail,
 }
 
+// TODO: add optional type ascription
+
 #[derive(Debug)]
-pub enum Stmt<'a> {
-  ExprList(Box<[Expr<'a>]>),                          // a, b
-  Let(Box<(Box<[Binding<'a>]>, Box<[Expr<'a>]>)>),    // let x, y = a, b
-  DefLocal(Box<(Symbol<'a>, Expr<'a>)>),              // let mutable x = a
-  SetLocal(Box<(Symbol<'a>, Expr<'a>)>),              // x = 1
-  SetField(Box<(Expr<'a>, Symbol<'a>, Expr<'a>)>),    // a.foo = 1
-  SetIndex(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),      // a[b] = c
-  SetLocalCompound(Box<(Symbol<'a>, Op2, Expr<'a>)>), // x += a
-  Break(Box<[Expr<'a>]>),                             // break a, b
-  While(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),            // while (a) { ... }
-  Continue,                                           // continue
-  Ret(Box<[Expr<'a>]>),                               // return a, b
+pub struct Binding<'a> {
+  pub name: Option<Symbol<'a>>,
 }
 
 #[derive(Clone, Copy)]

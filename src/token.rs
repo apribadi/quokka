@@ -35,7 +35,7 @@ pub enum Token<'a> {
   #[token(r"+")] Add,
   #[token(r",")] Comma,
   #[token(r"-")] Sub,
-  #[token(r".")] Dot,
+  #[token(r".", is_attached)] Dot(bool),
   #[token(r"/")] Div,
   #[token(r":")] Colon,
   #[token(r"<")] CmpLt,
@@ -53,8 +53,8 @@ pub enum Token<'a> {
   #[token(r"~")] Tilde,
   #[token(r"<<")] Shl,
   #[token(r">>")] Shr,
-  #[token(r"&&")] And,
-  #[token(r"||")] Or,
+  #[token(r"&&")] LogAnd,
+  #[token(r"||")] LogOr,
   #[token(r"++")] Inc,
   #[token(r"--")] Dec,
   #[token(r"==")] CmpEq,
@@ -77,7 +77,7 @@ pub enum Token<'a> {
   #[token(r"return")] Return,
   #[token(r"true")] True,
   #[token(r"while")] While,
-  #[regex(r"-*[[:alpha:]][\-[:alnum:]]*", |t| t.slice(), priority = 1)] Symbol(&'a str),
+  #[regex(r"-*[[:alpha:]][\-[:alnum:]]*", |t| ((is_attached(t), t.slice())), priority = 1)] Symbol((bool, &'a str)),
   #[regex(r"[\-+]?(0|[1-9][0-9]*)", parse_i64)] Int(i64),
   #[regex(r"\.+|:+|(?&symbolic)+|[\-+]?[0-9](\.|:|(?&symbolic))*", |_| false, priority = 0)] Malformed,
   /*
@@ -137,11 +137,11 @@ a.++b
   }
   expect_test::expect![[r#"
       Err(()) "0:0:0"
-      Ok(Symbol("foo")) "foo"
-      Ok(Dot) "."
+      Ok(Symbol((false, "foo"))) "foo"
+      Ok(Dot(true)) "."
       Err(()) "0.0"
-      Ok(Symbol("bar")) "bar"
-      Ok(Dot) "."
+      Ok(Symbol((false, "bar"))) "bar"
+      Ok(Dot(true)) "."
       Err(()) "+0.0"
       Err(()) "0_0"
       Err(()) "0_0.abc"
@@ -155,11 +155,11 @@ a.++b
       Err(()) "0.0.0"
       Err(()) "+0xcafe"
       Ok(Int(0)) "-0"
-      Ok(Symbol("a")) "a"
-      Ok(Dot) "."
-      Ok(Symbol("b")) "b"
-      Ok(Symbol("a")) "a"
-      Ok(Dot) "."
+      Ok(Symbol((false, "a"))) "a"
+      Ok(Dot(true)) "."
+      Ok(Symbol((true, "b"))) "b"
+      Ok(Symbol((false, "a"))) "a"
+      Ok(Dot(true)) "."
       Err(()) "++b"
       Err(()) "0.++b"
   "#]].assert_eq(o.drain(..).as_str());
@@ -183,14 +183,14 @@ fun fib(n) {
   }
   expect_test::expect![[r#"
       Ok(Fun) "fun"
-      Ok(Symbol("fib")) "fib"
+      Ok(Symbol((false, "fib"))) "fib"
       Ok(LParen(true)) "("
-      Ok(Symbol("n")) "n"
+      Ok(Symbol((true, "n"))) "n"
       Ok(RParen) ")"
       Ok(LBrace) "{"
       Ok(If) "if"
       Ok(LParen(false)) "("
-      Ok(Symbol("n")) "n"
+      Ok(Symbol((true, "n"))) "n"
       Ok(CmpLe) "<="
       Ok(Int(1)) "1"
       Ok(RParen) ")"
@@ -199,16 +199,16 @@ fun fib(n) {
       Ok(Int(1)) "1"
       Ok(RBrace) "}"
       Ok(Return) "return"
-      Ok(Symbol("fib")) "fib"
+      Ok(Symbol((false, "fib"))) "fib"
       Ok(LParen(true)) "("
-      Ok(Symbol("n")) "n"
+      Ok(Symbol((true, "n"))) "n"
       Ok(Sub) "-"
       Ok(Int(1)) "1"
       Ok(RParen) ")"
       Ok(Add) "+"
-      Ok(Symbol("fib")) "fib"
+      Ok(Symbol((false, "fib"))) "fib"
       Ok(LParen(true)) "("
-      Ok(Symbol("n")) "n"
+      Ok(Symbol((true, "n"))) "n"
       Ok(Sub) "-"
       Ok(Int(2)) "2"
       Ok(RParen) ")"
