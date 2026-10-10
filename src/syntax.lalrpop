@@ -1,49 +1,109 @@
 use crate::token::Token;
+use crate::ast::Op1;
 use crate::ast::Op2;
 use crate::ast::Expr;
+use crate::ast::IncDec;
+use crate::ast::PrePost;
+use crate::ast::Stmt;
 
-grammar;
+grammar<'a>(source: &'a str);
 
-pub EXPR: Expr = {
-  #[precedence(level = "0")]
+pub STMT: Stmt<'a> = {
+  LET SYMBOL EQUAL <x:EXPR> =>
+    Stmt::Let(Box::new((vec![].into_boxed_slice(), vec![].into_boxed_slice()))),
+  EXPR_1 LBRACKET_ATTACHED EXPR RBRACKET EQUAL EXPR =>
+    Stmt::Continue,
+  <s:SYMBOL> EQUAL <x:EXPR> => Stmt::SetLocal(Box::new((s, x))),
+  EXPR =>
+    Stmt::ExprList(vec![<>].into_boxed_slice()),
+}
+
+pub EXPR: Expr<'a> = {
+  EXPR_6,
+}
+
+EXPR_0: Expr<'a> = {
+  <s:SYMBOL> => Expr::Var(s),
+  <x:INT> => Expr::ConstI64(x),
   FALSE => Expr::ConstBool(false),
   TRUE => Expr::ConstBool(true),
-  INT => Expr::ConstI64(0),
+  LPAREN <x:EXPR> RPAREN => x,
+}
 
-  #[precedence(level = "1")]
-  <f:EXPR> LPAREN_ATTACHED <x:EXPR> RPAREN => Expr::Call(Box::new((f, vec![x].into_boxed_slice()))),
+EXPR_1: Expr<'a> = {
+  EXPR_0,
+  <x:EXPR_1> LBRACKET_ATTACHED <y:EXPR> RBRACKET => Expr::GetIndex(Box::new((x, y))),
+}
 
-  #[precedence(level = "2")]
-  #[assoc(side = "left")]
-  <x:EXPR> MUL <y:EXPR> => Expr::Op2(Box::new((Op2::Mul, x, y))),
-  <x:EXPR> DIV <y:EXPR> => Expr::Op2(Box::new((Op2::Div, x, y))),
+EXPR_2: Expr<'a> = {
+  EXPR_1,
+  LOOP LBRACE RBRACE => Expr::Loop(vec![].into_boxed_slice()),
+}
 
-  #[precedence(level = "3")]
-  #[assoc(side = "left")]
-  <x:EXPR> ADD <y:EXPR> => Expr::Op2(Box::new((Op2::Add, x, y))),
-  <x:EXPR> SUB <y:EXPR> => Expr::Op2(Box::new((Op2::Sub, x, y))),
-};
+EXPR_3: Expr<'a> = {
+  EXPR_2,
+  INC <s:SYMBOL> => Expr::IncDecLocal(Box::new((PrePost::Pre, IncDec::Inc, s))),
+  DEC <s:SYMBOL> => Expr::IncDecLocal(Box::new((PrePost::Pre, IncDec::Dec, s))),
+  SUB <x:EXPR_3> => Expr::Op1(Box::new((Op1::Neg, x))),
+  NOT <x:EXPR_3> => Expr::Op1(Box::new((Op1::Not, x))),
+}
+
+EXPR_4: Expr<'a> = {
+  EXPR_3,
+  <s:SYMBOL> INC => Expr::IncDecLocal(Box::new((PrePost::Post, IncDec::Inc, s))),
+  <s:SYMBOL> DEC => Expr::IncDecLocal(Box::new((PrePost::Post, IncDec::Dec, s))),
+}
+
+EXPR_5: Expr<'a> = {
+  EXPR_4,
+  <x:EXPR_5> MUL <y:EXPR_4> => Expr::Op2(Box::new((Op2::Mul, x, y))),
+  <x:EXPR_5> DIV <y:EXPR_4> => Expr::Op2(Box::new((Op2::Div, x, y))),
+}
+
+EXPR_6: Expr<'a> = {
+  EXPR_5,
+  <x:EXPR_6> ADD <y:EXPR_5> => Expr::Op2(Box::new((Op2::Add, x, y))),
+  <x:EXPR_6> SUB <y:EXPR_5> => Expr::Op2(Box::new((Op2::Sub, x, y))),
+}
 
 LPAREN = {
   LPAREN_ATTACHED,
   LPAREN_DETACHED,
-};
+}
+
+LBRACKET = {
+  LBRACKET_ATTACHED,
+  LBRACKET_DETACHED,
+}
 
 extern {
   type Location = usize;
   
   type Error = ();
 
-  enum Token {
+  enum Token<'a> {
+    INC => Token::Inc,
+    DEC => Token::Dec,
     ADD => Token::Add,
     SUB => Token::Sub,
     MUL => Token::Mul,
     DIV => Token::Div,
+    NOT => Token::Not,
     LPAREN_ATTACHED => Token::LParen(true),
     LPAREN_DETACHED => Token::LParen(false),
     RPAREN => Token::RParen,
-    TRUE=> Token::True,
-    FALSE=> Token::False,
-    INT=> Token::Int,
+    LBRACKET_ATTACHED => Token::LBracket(true),
+    LBRACKET_DETACHED => Token::LBracket(false),
+    RBRACKET => Token::RBracket,
+    LBRACE => Token::LBrace,
+    RBRACE => Token::RBrace,
+    EQUAL => Token::Equal,
+    TRUE => Token::True,
+    FALSE => Token::False,
+    IF => Token::If,
+    LET => Token::Let,
+    LOOP => Token::Loop,
+    INT => Token::Int(<i64>),
+    SYMBOL => Token::Symbol(<&'a str>),
   }
 }

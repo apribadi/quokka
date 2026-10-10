@@ -1,59 +1,57 @@
-type Symbol = usize;
-type Field = usize;
-type Local = usize;
+type Symbol<'a> = &'a str;
 
 #[derive(Debug)]
-pub enum Item {
-  Fun(Box<Fun>),
+pub enum Item<'a> {
+  Fun(Box<Fun<'a>>),
 }
 
 #[derive(Debug)]
-pub struct Fun {
-  pub name: Symbol,
-  pub args: Box<[Binding]>,
-  pub body: Box<[Stmt]>,
+pub struct Fun<'a> {
+  pub name: Symbol<'a>,
+  pub args: Box<[Binding<'a>]>,
+  pub body: Box<[Stmt<'a>]>,
 }
 
 // TODO: add optional type ascription
 
 #[derive(Debug)]
-pub struct Binding {
-  pub name: Option<Symbol>,
+pub struct Binding<'a> {
+  pub name: Option<Symbol<'a>>,
 }
 
 #[derive(Debug)]
-pub enum Expr {
-  ConstBool(bool),                               // true OR false
-  ConstI64(i64),                                 // 3
-  LogAnd(Box<(Expr, Expr)>),                     // a && b
-  LogOr(Box<(Expr, Expr)>),                      // a || b
-  Op1(Box<(Op1, Expr)>),                         // - a
-  Op2(Box<(Op2, Expr, Expr)>),                   // a + b
-  GetField(Box<(Expr, Field)>),                  // a.foo
-  GetIndex(Box<(Expr, Expr)>),                   // a[b]
-  IncDecLocal(Box<(IncDec, PrePost, Local)>),    // ++ x OR x ++
-  If(Box<(Expr, Box<[Stmt]>)>),                  // if (a) { ... }
-  IfElse(Box<(Expr, Box<[Stmt]>, Box<[Stmt]>)>), // if (a) { ... } else { ... }
-  Select(Box<(Expr, Expr, Expr)>),               // a ? b : c
-  Var(Symbol),                                   // x
-  Call(Box<(Expr, Box<[Expr]>)>),                // a(b, c)
-  Loop(Box<[Stmt]>),                             // loop { ... }
+pub enum Expr<'a> {
+  ConstBool(bool),                                           // true OR false
+  ConstI64(i64),                                             // 3
+  LogAnd(Box<(Expr<'a>, Expr<'a>)>),                         // a && b
+  LogOr(Box<(Expr<'a>, Expr<'a>)>),                          // a || b
+  Op1(Box<(Op1, Expr<'a>)>),                                 // - a
+  Op2(Box<(Op2, Expr<'a>, Expr<'a>)>),                       // a + b
+  GetField(Box<(Expr<'a>, Symbol<'a>)>),                     // a.foo
+  GetIndex(Box<(Expr<'a>, Expr<'a>)>),                       // a[b]
+  IncDecLocal(Box<(PrePost, IncDec, Symbol<'a>)>),           // ++ x OR x ++
+  If(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),                      // if (a) { ... }
+  IfElse(Box<(Expr<'a>, Box<[Stmt<'a>]>, Box<[Stmt<'a>]>)>), // if (a) { ... } else { ... }
+  Select(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),               // a ? b : c
+  Var(Symbol<'a>),                                           // x
+  Call(Box<(Expr<'a>, Box<[Expr<'a>]>)>),                    // a(b, c)
+  Loop(Box<[Stmt<'a>]>),                                     // loop { ... }
   Fail,
 }
 
 #[derive(Debug)]
-pub enum Stmt {
-  ExprList(Box<[Expr]>),                           // a, b
-  Let(Box<(Box<[Binding]>, Box<[Expr]>)>),         // let x, y = a, b
-  DefLocal(Box<(Local, Expr)>),                    // let mutable x = a
-  SetLocal(Box<(Local, Expr)>),                    // x = 1
-  SetField(Box<(Expr, Field, Expr)>),              // a.foo = 1
-  SetIndex(Box<(Expr, Expr, Expr)>),               // a[b] = c
-  SetLocalCompound(Box<(Local, Op2, Expr)>),       // x += a
-  Break(Box<[Expr]>),                              // break a, b
-  While(Box<(Expr, Box<[Stmt]>)>),                 // while (a) { ... }
-  Continue,                                        // continue
-  Ret(Box<[Expr]>),                                // return a, b
+pub enum Stmt<'a> {
+  ExprList(Box<[Expr<'a>]>),                          // a, b
+  Let(Box<(Box<[Binding<'a>]>, Box<[Expr<'a>]>)>),    // let x, y = a, b
+  DefLocal(Box<(Symbol<'a>, Expr<'a>)>),              // let mutable x = a
+  SetLocal(Box<(Symbol<'a>, Expr<'a>)>),              // x = 1
+  SetField(Box<(Expr<'a>, Symbol<'a>, Expr<'a>)>),    // a.foo = 1
+  SetIndex(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),      // a[b] = c
+  SetLocalCompound(Box<(Symbol<'a>, Op2, Expr<'a>)>), // x += a
+  Break(Box<[Expr<'a>]>),                             // break a, b
+  While(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),            // while (a) { ... }
+  Continue,                                           // continue
+  Ret(Box<[Expr<'a>]>),                               // return a, b
 }
 
 #[derive(Clone, Copy)]

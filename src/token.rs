@@ -1,7 +1,8 @@
 use logos::Logos;
 use logos::Lexer;
+use std::str::FromStr;
 
-pub fn scan(source: &str) -> impl Iterator<Item = Result<(usize, Token, usize), ()>> {
+pub fn scan(source: &str) -> impl Iterator<Item = Result<(usize, Token<'_>, usize), ()>> {
   Token::lexer(source).spanned().map(|(token, span)| 
     match token {
       Err(()) => Err(()),
@@ -10,8 +11,12 @@ pub fn scan(source: &str) -> impl Iterator<Item = Result<(usize, Token, usize), 
   )
 }
 
-fn is_attached<'a>(t: &Lexer<'a, Token>) -> bool {
+fn is_attached<'a>(t: &Lexer<'a, Token<'a>>) -> bool {
   t.extras != t.span().start
+}
+
+fn parse_i64<'a>(t: &Lexer<'a, Token<'a>>) -> Result<i64, ()> {
+  i64::from_str(t.slice()).map_err(|_| ())
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -19,7 +24,7 @@ fn is_attached<'a>(t: &Lexer<'a, Token>) -> bool {
 #[logos(extras = usize)]
 #[logos(skip(r"([ \t\n]+|;[^\n]*)+", |t| t.extras = t.span().end))]
 #[logos(subpattern symbolic = r"[\-\^#!$%&*+/<=>?@_|~[:alnum:]]")]
-pub enum Token {
+pub enum Token<'a> {
   #[token(r"!")] Not,
   #[token(r"$")] Dollar,
   #[token(r"%")] Rem,
@@ -38,7 +43,7 @@ pub enum Token {
   #[token(r">")] CmpGt,
   #[token(r"?")] Query,
   #[token(r"@")] At,
-  #[token(r"[")] LBracket,
+  #[token(r"[", is_attached)] LBracket(bool),
   #[token(r"]")] RBracket,
   #[token(r"^")] BitXor,
   #[token(r"_")] Underscore,
@@ -72,8 +77,8 @@ pub enum Token {
   #[token(r"return")] Return,
   #[token(r"true")] True,
   #[token(r"while")] While,
-  #[regex(r"-*[[:alpha:]][\-[:alnum:]]*", priority = 1)] Symbol,
-  #[regex(r"[\-+]?(0|[1-9][0-9]*)")] Int,
+  #[regex(r"-*[[:alpha:]][\-[:alnum:]]*", |t| t.slice(), priority = 1)] Symbol(&'a str),
+  #[regex(r"[\-+]?(0|[1-9][0-9]*)", parse_i64)] Int(i64),
   #[regex(r"\.+|:+|(?&symbolic)+|[\-+]?[0-9](\.|:|(?&symbolic))*", |_| false, priority = 0)] Malformed,
   /*
   DoubleQuote,
@@ -132,28 +137,28 @@ a.++b
   }
   expect_test::expect![[r#"
       Err(()) "0:0:0"
-      Ok(Symbol) "foo"
+      Ok(Symbol("foo")) "foo"
       Ok(Dot) "."
       Err(()) "0.0"
-      Ok(Symbol) "bar"
+      Ok(Symbol("bar")) "bar"
       Ok(Dot) "."
       Err(()) "+0.0"
       Err(()) "0_0"
       Err(()) "0_0.abc"
-      Ok(Int) "100"
-      Ok(Int) "-100"
-      Ok(Int) "+100"
+      Ok(Int(100)) "100"
+      Ok(Int(-100)) "-100"
+      Ok(Int(100)) "+100"
       Err(()) "001"
       Err(()) "000"
       Err(()) "-001"
       Err(()) "foo+++bar"
       Err(()) "0.0.0"
       Err(()) "+0xcafe"
-      Ok(Int) "-0"
-      Ok(Symbol) "a"
+      Ok(Int(0)) "-0"
+      Ok(Symbol("a")) "a"
       Ok(Dot) "."
-      Ok(Symbol) "b"
-      Ok(Symbol) "a"
+      Ok(Symbol("b")) "b"
+      Ok(Symbol("a")) "a"
       Ok(Dot) "."
       Err(()) "++b"
       Err(()) "0.++b"
@@ -178,34 +183,34 @@ fun fib(n) {
   }
   expect_test::expect![[r#"
       Ok(Fun) "fun"
-      Ok(Symbol) "fib"
+      Ok(Symbol("fib")) "fib"
       Ok(LParen(true)) "("
-      Ok(Symbol) "n"
+      Ok(Symbol("n")) "n"
       Ok(RParen) ")"
       Ok(LBrace) "{"
       Ok(If) "if"
       Ok(LParen(false)) "("
-      Ok(Symbol) "n"
+      Ok(Symbol("n")) "n"
       Ok(CmpLe) "<="
-      Ok(Int) "1"
+      Ok(Int(1)) "1"
       Ok(RParen) ")"
       Ok(LBrace) "{"
       Ok(Return) "return"
-      Ok(Int) "1"
+      Ok(Int(1)) "1"
       Ok(RBrace) "}"
       Ok(Return) "return"
-      Ok(Symbol) "fib"
+      Ok(Symbol("fib")) "fib"
       Ok(LParen(true)) "("
-      Ok(Symbol) "n"
+      Ok(Symbol("n")) "n"
       Ok(Sub) "-"
-      Ok(Int) "1"
+      Ok(Int(1)) "1"
       Ok(RParen) ")"
       Ok(Add) "+"
-      Ok(Symbol) "fib"
+      Ok(Symbol("fib")) "fib"
       Ok(LParen(true)) "("
-      Ok(Symbol) "n"
+      Ok(Symbol("n")) "n"
       Ok(Sub) "-"
-      Ok(Int) "2"
+      Ok(Int(2)) "2"
       Ok(RParen) ")"
       Ok(RBrace) "}"
   "#]].assert_eq(o.drain(..).as_str());
