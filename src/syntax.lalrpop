@@ -15,12 +15,22 @@ pub STMT: Stmt<'a> = {
     Stmt::SetIndex(Box::new((x, y, z))),
   <s:SYMBOL> EQUAL <x:EXPR> =>
     Stmt::SetLocal(Box::new((s, x))),
-  EXPR =>
-    Stmt::ExprList(vec![<>].into_boxed_slice()),
+  CONTINUE => Stmt::Continue,
+  EXPR => Stmt::ExprList(vec![<>].into_boxed_slice()),
 }
 
-pub EXPR: Expr<'a> = {
-  EXPR_6,
+BLOCK: Box<[(Stmt<'a>)]> = {
+  RBRACE => Box::from([]),
+  <x:STMT> RBRACE => Box::from([x]),
+  <x:STMT> <y:STMT> RBRACE => Box::from([x, y]),
+}
+
+EXPR_LIST: Box<[Expr<'a>]> = {
+  COMMA_SEPARATED_LIST<EXPR>
+}
+
+EXPR: Expr<'a> = {
+  EXPR_7,
 }
 
 EXPR_0: Expr<'a> = {
@@ -33,13 +43,14 @@ EXPR_0: Expr<'a> = {
 
 EXPR_1: Expr<'a> = {
   EXPR_0,
-  <x:EXPR_1> LBRACKET_ATTACHED <y:EXPR> RBRACKET => Expr::GetIndex(Box::new((x, y))),
   <x:EXPR_1> DOT_ATTACHED <s:SYMBOL_ATTACHED> => Expr::GetField(Box::new((x, s))),
+  <x:EXPR_1> LBRACKET_ATTACHED <y:EXPR> RBRACKET => Expr::GetIndex(Box::new((x, y))),
+  <x:EXPR_1> LPAREN_ATTACHED <y:EXPR_LIST> RPAREN => Expr::Call(Box::new((x, y))),
 }
 
 EXPR_2: Expr<'a> = {
   EXPR_1,
-  LOOP LBRACE RBRACE => Expr::Loop(vec![].into_boxed_slice()),
+  LOOP LBRACE <x:BLOCK> => Expr::Loop(x),
 }
 
 EXPR_3: Expr<'a> = {
@@ -68,11 +79,31 @@ EXPR_6: Expr<'a> = {
   <x:EXPR_6> SUB <y:EXPR_5> => Expr::Op2(Box::new((Op2::Sub, x, y))),
 }
 
+EXPR_7: Expr<'a> = {
+  EXPR_6,
+  <x:EXPR_7> SHL <y:EXPR_6> => Expr::Op2(Box::new((Op2::Shr, x, y))),
+  <x:EXPR_7> SHR <y:EXPR_6> => Expr::Op2(Box::new((Op2::Shl, x, y))),
+}
+
 LPAREN = { LPAREN_ATTACHED, LPAREN_DETACHED, }
 
 LBRACKET = { LBRACKET_ATTACHED, LBRACKET_DETACHED, }
 
 SYMBOL: &'a str = { SYMBOL_ATTACHED, SYMBOL_DETACHED, }
+
+SEPARATED_LIST_AUX<T, U>: Vec<T> = {
+  <x:T> => vec![x],
+  <x:SEPARATED_LIST_AUX<T, U>> U <y: T> => { let mut x = x; x.push(y); x },
+}
+
+COMMA_SEPARATED_LIST<T>: Box<[T]> = {
+  <x: SEPARATED_LIST_AUX<T, COMMA>> => x.into_boxed_slice(),
+}
+
+LIST_AUX<T>: Vec<T> = {
+  <x:T> => vec![x],
+  <x:LIST_AUX<T>> <y: T> => { let mut x = x; x.push(y); x },
+}
 
 extern {
   type Location = usize;

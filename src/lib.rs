@@ -3,6 +3,7 @@ pub mod ast;
 pub mod prelude;
 pub mod ssa_0;
 pub mod token;
-pub mod parse;
+pub mod lexer;
+// pub mod parse;
 
-lalrpop_util::lalrpop_mod!(syntax);
+// lalrpop_util::lalrpop_mod!(syntax);
