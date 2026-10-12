@@ -1,4 +1,4 @@
-//! lexical analysis of a byte-string to produces a stream of tokens
+//! lexical analysis of a byte-string to produce a stream of tokens
 
 use crate::prelude::*;
 use crate::token::Token;
@@ -9,6 +9,9 @@ const C: u8 = 12;
 const D: u8 = 13;
 const E: u8 = 14;
 const F: u8 = 15;
+const G: u8 = 16;
+const H: u8 = 17;
+const I: u8 = 18;
 
 // ===== KINDS =====
 //
@@ -16,38 +19,109 @@ const F: u8 = 15;
 // 1 - space        HT SP
 // 2 - line feed    LF
 // 3 - semicolon    ;
-// 4 - punctuation  ( ) , [ ] { }
-// 5 - plus minus   +-
-// 6 - operator     ! # $ % & * / < = > ? @ ^ _ | ~
-// 7 - dot          .
-// 8 - colon        :
-// 9 - backslash    \
-// A - alphabet     A ... Z a ... z
-// B - digit        0 1 2 3 4 5 6 7 7 8 9
-// C - double quote "
-// D - single quote '
-// E - back quote   `
-// F - continuation 0b10xxxxxx
+// 4 - punctuation  ' ( ) , [ ] ` { }
+// 5 - dot          .
+// 6 - colon        :
+// 7 - plus         +
+// 8 - hyphen       -
+// 9 - operator     ! # $ % & * / < = > ? @ ^ _ | ~
+// A - letter       A ... Z a ... z
+// B - zero         0
+// C - digit        1 2 3 4 5 6 7 7 8 9
+// D - quote        "
+// E - backslash    \
 
 static KIND: [u8; 256] = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-  1, 6, C, 6, 6, 6, 6, D, 4, 4, 6, 5, 4, 5, 7, 6,
-  B, B, B, B, B, B, B, B, B, B, 8, 3, 6, 6, 6, 6,
-  6, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A,
-  A, A, A, A, A, A, A, A, A, A, A, 4, 9, 4, 6, 6,
-  E, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A,
-  A, A, A, A, A, A, A, A, A, A, A, 4, 6, 4, 6, 0,
-  F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F,
-  F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F,
-  F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F,
-  F, F, F, F, F, F, F, F, F, F, F, F, F, F, F, F,
+  1, 9, D, 9, 9, 9, 9, 4, 4, 4, 9, 7, 4, 8, 5, 9,
+  B, C, C, C, C, C, C, C, C, C, 6, 7, 9, 9, 9, 9,
+  9, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A,
+  A, A, A, A, A, A, A, A, A, A, A, 4, E, 4, 9, 9,
+  4, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A,
+  A, A, A, A, A, A, A, A, A, A, A, 4, 9, 4, 9, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
+// ===== STATES =====
+//
+// 0 - nil
+// 1 - illegal char start
+// E - illegal char continue
+// 3 - comment
+// 4 - punctuation
+// 5 - quote start
+// 6 - quote continue
+// 7 - quote escape
+// 8 - quote stop
+// 9 - dot
+// A - colon
+// B - plus
+// C - hyphen
+// D - zero
+// E - int
+// F - number
+// G - operator
+// H - symbol
+// I - word
+
+const fn transition(kind: u8, state: u8) -> u8 {
+  match (kind, state) {
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+    (0, _) => 0,
+  }
+}
+
+static TRANSITION: [[u8; 16]; 256] = {
+  let mut table = [[0u8; 16]; 256];
+  let mut i = 0;
+  while i < 256 {
+    let mut j = 0;
+    while j < 16 {
+      table[i][j] = transition(KIND[i], j as u8);
+      j += 1;
+    }
+    i += 1;
+  }
+  table
+};
+
+/*
+static TRAN: [[u8; 16]; 16] = [
+// 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // illegal
+  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // space       
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // line feed   
+  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, E, 3, E, 3], // semicolon   
+  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, E, 4, E, 4], // punctuation 
+  [5, 5, 2, 3, 5, 2, 2, 2, 2, 5, 5, D, E, D, E, 5], // sign        
+  [6, 6, 2, 3, 6, 2, 2, 2, 2, 6, 6, 6, E, 6, E, 6], // operator    
+  [7, 7, 2, 3, 7, 2, 2, 2, 2, 7, 7, D, E, D, E, 7], // dot         
+  [8, 8, 2, 3, 8, 2, 2, 2, 2, 8, 8, 8, E, 8, E, 8], // colon       
+  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // backslash   
+  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // letter      
+  [B, B, B, 3, B, D, B, 9, B, 9, 9, D, E, D, E, B], // digit       
+  [C, C, C, 3, C, C, C, C, C, C, C, C, F, C, F, C], // double quote
+  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // single quote
+  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // back quote  
+  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // cont byte   
+];
+*/
 
 /*
 pub struct Lexer<'a> {
@@ -59,44 +133,6 @@ pub struct Lexer<'a> {
   is_attached: bool,
   token: Token,
 }
-
-// ===== STATES =====
-// 0 - nil
-// 1 - illegal char
-// 2 - operator continuation
-// 3 - comment
-// 4 - punctuation
-// 5 - plus minus
-// 6 - operator start
-// 7 - dot
-// 8 - colon
-// 9 - symbol continuation
-// A - symbol start
-// B - number start
-// C - double quote start
-// D - number continuation
-// E - double quote continuation
-// F - quote end
-
-static TRANSITION_BY_BYTE_KIND: [[u8; 16]; 16] = [
-// 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // 0 - illegal
-  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // 1 - space        \t sp
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // 2 - line feed    \n
-  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, E, 3, E, 3], // 3 - hash         #
-  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, E, 4, E, 4], // 4 - punctuation  ( ) , ; [ ] { }
-  [5, 5, 2, 3, 5, 2, 2, 2, 2, 5, 5, D, E, D, E, 5], // 5 - plus minus   +-
-  [6, 6, 2, 3, 6, 2, 2, 2, 2, 6, 6, 6, E, 6, E, 6], // 6 - operator     ! $ % & * / < = > ? @ ^ | ~
-  [7, 7, 2, 3, 7, 2, 2, 2, 2, 7, 7, D, E, D, E, 7], // 7 - dot          .
-  [8, 8, 2, 3, 8, 2, 2, 2, 2, 8, 8, 8, E, 8, E, 8], // 8 - colon        :
-  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // 9 - underscore   _
-  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // A - alphabet     A ... Z a ... z
-  [B, B, B, 3, B, D, B, 9, B, 9, 9, D, E, D, E, B], // B - digit        0 1 2 3 4 5 6 7 7 8 9
-  [C, C, C, 3, C, C, C, C, C, C, C, C, F, C, F, C], // C - double quote "
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // D - single quote '
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // E - back quote   `
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // F - back slash   \
-];
 
 // 0 - skip
 // 1 - token start
