@@ -17,7 +17,7 @@ const I: u8 = 18;
 //
 // 0 - illegal
 // 1 - space        HT SP
-// 2 - line feed    LF
+// 2 - newline      LF
 // 3 - semicolon    ;
 // 4 - punctuation  ' ( ) , [ ] ` { }
 // 5 - dot          .
@@ -35,7 +35,7 @@ static KIND: [u8; 256] = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   1, 9, D, 9, 9, 9, 9, 4, 4, 4, 9, 7, 4, 8, 5, 9,
-  B, C, C, C, C, C, C, C, C, C, 6, 7, 9, 9, 9, 9,
+  B, C, C, C, C, C, C, C, C, C, 6, 3, 9, 9, 9, 9,
   9, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A,
   A, A, A, A, A, A, A, A, A, A, A, 4, E, 4, 9, 9,
   4, A, A, A, A, A, A, A, A, A, A, A, A, A, A, A,
@@ -54,40 +54,50 @@ static KIND: [u8; 256] = [
 //
 // 0 - nil
 // 1 - illegal char start
-// E - illegal char continue
+// 2 - illegal char continue
 // 3 - comment
 // 4 - punctuation
-// 5 - quote start
-// 6 - quote continue
-// 7 - quote escape
-// 8 - quote stop
-// 9 - dot
-// A - colon
-// B - plus
-// C - hyphen
-// D - zero
-// E - int
+// 5 - dot
+// 6 - colon
+// 7 - plus
+// 8 - hyphen
+// 9 - operator
+// A - symbol
+// B - zero
+// C - int
+// D - quote start
+// E - quote escape
+// F - quote continue
+// G - quote stop
+//
 // F - number
-// G - operator
 // H - symbol
 // I - word
+// 5 - quote start
+// 7 - quote escape
+// 8 - quote stop
 
-const fn transition(kind: u8, state: u8) -> u8 {
-  match (kind, state) {
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-    (0, _) => 0,
-  }
-}
+static TRAN: [[u8; 19]; 15] = [
+// 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F, G, H, I
+  [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 0 - illegal
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 1 - space
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 2 - newline
+  [3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 3 - semicolon
+  [4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 4 - punctuation
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 5 - dot
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 6 - colon
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 7 - plus
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 8 - hyphen
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // 9 - operator
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // A - letter
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // B - zero
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // C - digit
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // D - quote
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // E - backslash
+];
 
-static TRANSITION: [[u8; 16]; 256] = {
+/*
+static FOO: [[u8; 16]; 256] = {
   let mut table = [[0u8; 16]; 256];
   let mut i = 0;
   while i < 256 {
@@ -100,26 +110,27 @@ static TRANSITION: [[u8; 16]; 256] = {
   }
   table
 };
+*/
 
 /*
 static TRAN: [[u8; 16]; 16] = [
 // 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
   [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // illegal
-  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // space       
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // line feed   
-  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, E, 3, E, 3], // semicolon   
-  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, E, 4, E, 4], // punctuation 
-  [5, 5, 2, 3, 5, 2, 2, 2, 2, 5, 5, D, E, D, E, 5], // sign        
-  [6, 6, 2, 3, 6, 2, 2, 2, 2, 6, 6, 6, E, 6, E, 6], // operator    
-  [7, 7, 2, 3, 7, 2, 2, 2, 2, 7, 7, D, E, D, E, 7], // dot         
-  [8, 8, 2, 3, 8, 2, 2, 2, 2, 8, 8, 8, E, 8, E, 8], // colon       
-  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // backslash   
-  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // letter      
-  [B, B, B, 3, B, D, B, 9, B, 9, 9, D, E, D, E, B], // digit       
+  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // space
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // line feed
+  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, E, 3, E, 3], // semicolon
+  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, E, 4, E, 4], // punctuation
+  [5, 5, 2, 3, 5, 2, 2, 2, 2, 5, 5, D, E, D, E, 5], // sign
+  [6, 6, 2, 3, 6, 2, 2, 2, 2, 6, 6, 6, E, 6, E, 6], // operator
+  [7, 7, 2, 3, 7, 2, 2, 2, 2, 7, 7, D, E, D, E, 7], // dot
+  [8, 8, 2, 3, 8, 2, 2, 2, 2, 8, 8, 8, E, 8, E, 8], // colon
+  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // backslash
+  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // letter
+  [B, B, B, 3, B, D, B, 9, B, 9, 9, D, E, D, E, B], // digit
   [C, C, C, 3, C, C, C, C, C, C, C, C, F, C, F, C], // double quote
   [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // single quote
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // back quote  
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // cont byte   
+  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // back quote
+  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // cont byte
 ];
 */
 
