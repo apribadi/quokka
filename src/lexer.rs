@@ -3,6 +3,9 @@
 use crate::prelude::*;
 use crate::token::Token;
 
+const NUM_STATES: usize = 24;
+const NUM_KINDS: usize = 15;
+
 const A: u8 = 10;
 const B: u8 = 11;
 const C: u8 = 12;
@@ -12,8 +15,13 @@ const F: u8 = 15;
 const G: u8 = 16;
 const H: u8 = 17;
 const I: u8 = 18;
+const J: u8 = 19;
+const K: u8 = 20;
+const L: u8 = 21;
+const M: u8 = 22;
+const N: u8 = 23;
 
-// ===== KINDS =====
+// ===== KIND =====
 //
 // 0 - illegal
 // 1 - space        HT SP
@@ -50,7 +58,7 @@ static KIND: [u8; 256] = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-// ===== STATES =====
+// ===== STATE =====
 //
 // 0 - nil
 // 1 - illegal char start
@@ -77,7 +85,7 @@ static KIND: [u8; 256] = [
 // M - reserved symbol
 // N - reserved number
 
-static TRAN: [[u8; 21]; 15] = [
+static SPEC: [[u8; NUM_STATES]; NUM_KINDS] = [
 // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F, G, H, I, J, K, L, M, N
   [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, F, F, F, 1, 1, 1, 1, 1, 1, 1, 1], // 0 - illegal
   [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, F, F, F, 0, 0, 0, 0, 0, 0, 0, 0], // 1 - space
@@ -96,6 +104,150 @@ static TRAN: [[u8; 21]; 15] = [
   [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, E, F, E, 1, 1, 1, 1, 1, 1, 1, 1], // E - backslash
 ];
 
+// ===== FLAG =====
+//
+// 0 - skip
+// 1 - token start
+// 2 - token continue
+
+static FLAG: [u8; NUM_STATES] = [
+//0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F, G, H, I, J, K, L, M, N
+  0, 0, 0, 0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
+];
+
+static TRAN: [[u8; NUM_STATES]; 256] = {
+  let mut tran = [[0u8; NUM_STATES]; 256];
+  let mut i = 0;
+  while i < 256 {
+    let mut j = 0;
+    while j < NUM_STATES {
+      tran[i][j] = SPEC[KIND[i] as usize][j];
+      j += 1;
+    }
+    i += 1;
+  }
+  tran
+};
+
+pub fn scan(source: &[u8]) -> Box<[&'_ [u8]]> {
+  let t = &TRAN;
+  let f = &FLAG;
+  let n = source.len();
+  let mut a = Vec::new();
+  let mut s = 0u8;
+  let mut k = 0;
+  let mut p = false;
+  for i in 0 .. n {
+    s = unsafe { *t[*source.get_unchecked(i) as usize].get_unchecked(s as usize) };
+    let f = unsafe { *f.get_unchecked(s as usize) };
+    if p && f != 2 {
+      // stop
+      p = false;
+      a.push(unsafe { source.get_unchecked(k .. i) });
+    }
+    if f == 1 {
+      // start
+      p = true;
+      k = i;
+    }
+  }
+  if p { a.push(unsafe { source.get_unchecked(k .. n) }); }
+  a.into_boxed_slice()
+}
+
+#[test]
+fn test_bad() {
+  use std::fmt::Write;
+  let mut o = String::new();
+  for t in scan(
+    b"+++++ foo 100 +100 -=
+      only-kebob-case
+      asdf@@@
+      @@123
+      0.0.0.0
+      +0.0.0.0
+      1.1.1.1
+      -1.1.1.1
+      a,b,c
+      foo.bar.baz
+      "
+    )
+  {
+    write!(&mut o, "{:?}\n", str::from_utf8(t).unwrap());
+  }
+  expect_test::expect![[r#"
+      "+++++"
+      "foo"
+      "100"
+      "+100"
+      "-="
+      "only-kebob-case"
+      "asdf@@@"
+      "@@123"
+      "0.0.0.0"
+      "+0.0.0.0"
+      "1.1.1.1"
+      "-1.1.1.1"
+      "a"
+      ","
+      "b"
+      ","
+      "c"
+      "foo"
+      "."
+      "bar"
+      "."
+      "baz"
+  "#]].assert_eq(o.drain(..).as_str());
+  for t in scan(
+      b"
+fun fib(n) {
+  if n <= 2 {
+    return n
+  } else {
+    return fib(n - 1) + fib(n - 2)
+  }
+      "
+    )
+  {
+    write!(&mut o, "{:?}\n", str::from_utf8(t).unwrap());
+  }
+  expect_test::expect![[r#"
+      "fun"
+      "fib"
+      "("
+      "n"
+      ")"
+      "{"
+      "if"
+      "n"
+      "<="
+      "2"
+      "{"
+      "return"
+      "n"
+      "}"
+      "else"
+      "{"
+      "return"
+      "fib"
+      "("
+      "n"
+      "-"
+      "1"
+      ")"
+      "+"
+      "fib"
+      "("
+      "n"
+      "-"
+      "2"
+      ")"
+      "}"
+  "#]].assert_eq(o.drain(..).as_str());
+}
+
+
 /*
 static FOO: [[u8; 16]; 256] = {
   let mut table = [[0u8; 16]; 256];
@@ -110,28 +262,6 @@ static FOO: [[u8; 16]; 256] = {
   }
   table
 };
-*/
-
-/*
-static TRAN: [[u8; 16]; 16] = [
-// 0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // illegal
-  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // space
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, E, 0, E, 0], // line feed
-  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, E, 3, E, 3], // semicolon
-  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, E, 4, E, 4], // punctuation
-  [5, 5, 2, 3, 5, 2, 2, 2, 2, 5, 5, D, E, D, E, 5], // sign
-  [6, 6, 2, 3, 6, 2, 2, 2, 2, 6, 6, 6, E, 6, E, 6], // operator
-  [7, 7, 2, 3, 7, 2, 2, 2, 2, 7, 7, D, E, D, E, 7], // dot
-  [8, 8, 2, 3, 8, 2, 2, 2, 2, 8, 8, 8, E, 8, E, 8], // colon
-  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // backslash
-  [A, A, A, 3, A, A, A, 9, 9, 9, 9, D, E, D, E, A], // letter
-  [B, B, B, 3, B, D, B, 9, B, 9, 9, D, E, D, E, B], // digit
-  [C, C, C, 3, C, C, C, C, C, C, C, C, F, C, F, C], // double quote
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // single quote
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // back quote
-  [1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, E, 1, E, 1], // cont byte
-];
 */
 
 /*
