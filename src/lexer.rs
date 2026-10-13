@@ -4,7 +4,7 @@ use crate::prelude::*;
 use crate::token::Token;
 
 const NUM_STATES: usize = 24;
-const NUM_KINDS: usize = 15;
+const NUM_BYTE_KINDS: usize = 15;
 
 const A: u8 = 10;
 const B: u8 = 11;
@@ -21,7 +21,7 @@ const L: u8 = 21;
 const M: u8 = 22;
 const N: u8 = 23;
 
-// ===== KIND =====
+// ===== BYTE KINDS =====
 //
 // 0 - illegal
 // 1 - space        HT SP
@@ -39,7 +39,7 @@ const N: u8 = 23;
 // D - quote        "
 // E - backslash    \
 
-static KIND: [u8; 256] = [
+static BYTE_KIND: [u8; 256] = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0,
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   1, 9, D, 9, 9, 9, 9, 4, 4, 4, 9, 7, 4, 8, 5, 9,
@@ -85,7 +85,7 @@ static KIND: [u8; 256] = [
 // M - reserved symbol
 // N - reserved number
 
-static SPEC: [[u8; NUM_STATES]; NUM_KINDS] = [
+static TRANSITION_DEFINITION: [[u8; NUM_STATES]; NUM_BYTE_KINDS] = [
 // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F, G, H, I, J, K, L, M, N
   [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, F, F, F, 1, 1, 1, 1, 1, 1, 1, 1], // 0 - illegal
   [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, F, F, F, 0, 0, 0, 0, 0, 0, 0, 0], // 1 - space
@@ -104,24 +104,24 @@ static SPEC: [[u8; NUM_STATES]; NUM_KINDS] = [
   [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, E, F, E, 1, 1, 1, 1, 1, 1, 1, 1], // E - backslash
 ];
 
-// ===== FLAG =====
+// ===== STATE KIND =====
 //
 // 0 - skip
 // 1 - token start
 // 2 - token continue
 
-static FLAG: [u8; NUM_STATES] = [
+static STATE_KIND: [u8; NUM_STATES] = [
 //0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F, G, H, I, J, K, L, M, N
   0, 0, 0, 0, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2
 ];
 
-static TRAN: [[u8; NUM_STATES]; 256] = {
+static TRANSITION: [[u8; NUM_STATES]; 256] = {
   let mut tran = [[0u8; NUM_STATES]; 256];
   let mut i = 0;
   while i < 256 {
     let mut j = 0;
     while j < NUM_STATES {
-      tran[i][j] = SPEC[KIND[i] as usize][j];
+      tran[i][j] = TRANSITION_DEFINITION[BYTE_KIND[i] as usize][j];
       j += 1;
     }
     i += 1;
@@ -130,8 +130,8 @@ static TRAN: [[u8; NUM_STATES]; 256] = {
 };
 
 pub fn scan(source: &[u8]) -> Box<[&'_ [u8]]> {
-  let t = &TRAN;
-  let f = &FLAG;
+  let t = &TRANSITION;
+  let u = &STATE_KIND;
   let n = source.len();
   let mut a = Vec::new();
   let mut s = 0u8;
@@ -139,14 +139,12 @@ pub fn scan(source: &[u8]) -> Box<[&'_ [u8]]> {
   let mut p = false;
   for i in 0 .. n {
     s = unsafe { *t[*source.get_unchecked(i) as usize].get_unchecked(s as usize) };
-    let f = unsafe { *f.get_unchecked(s as usize) };
-    if p && f != 2 {
-      // stop
+    let x = unsafe { *u.get_unchecked(s as usize) };
+    if p && x != 2 {
       p = false;
       a.push(unsafe { source.get_unchecked(k .. i) });
     }
-    if f == 1 {
-      // start
+    if x == 1 {
       p = true;
       k = i;
     }
@@ -156,7 +154,7 @@ pub fn scan(source: &[u8]) -> Box<[&'_ [u8]]> {
 }
 
 #[test]
-fn test_bad() {
+fn test_segmenting() {
   use std::fmt::Write;
   let mut o = String::new();
   for t in scan(
@@ -247,22 +245,6 @@ fun fib(n) {
   "#]].assert_eq(o.drain(..).as_str());
 }
 
-
-/*
-static FOO: [[u8; 16]; 256] = {
-  let mut table = [[0u8; 16]; 256];
-  let mut i = 0;
-  while i < 256 {
-    let mut j = 0;
-    while j < 16 {
-      table[i][j] = transition(KIND[i], j as u8);
-      j += 1;
-    }
-    i += 1;
-  }
-  table
-};
-*/
 
 /*
 pub struct Lexer<'a> {
