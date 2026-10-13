@@ -2,7 +2,7 @@
 //!
 //! NB: single-byte tokens are their own variant tag
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum Token {
   Not        = 0x21, // !
@@ -19,7 +19,6 @@ pub enum Token {
   Dot        = 0x2e, // .
   Div        = 0x2f, // /
   Colon      = 0x3a, // :
-  Semi       = 0x3b, // ;
   CmpLt      = 0x3c, // <
   Equal      = 0x3d, // =
   CmpGt      = 0x3e, // >
@@ -33,8 +32,7 @@ pub enum Token {
   BitOr      = 0x7c, // |
   RBrace     = 0x7d, // }
   Tilde      = 0x7e, // ~
-  Eof        = 0xa0,
-  Error,
+  Error      = 0xa0,
   AddEqual,          // +=
   CmpEq,             // ==
   CmpGe,             // >=
@@ -64,6 +62,6 @@ pub enum Token {
   Var,
   While,
   Symbol,
-  Number,
-  DoubleQuote,
+  Int,
+  Quote,
 }

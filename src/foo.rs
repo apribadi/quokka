@@ -26,6 +26,7 @@ fn parse_i64<'a>(t: &Lexer<'a, Token<'a>>) -> Result<i64, ()> {
 #[logos(subpattern symbolic = r"[\-\^#!$%&*+/<=>?@_|~[:alnum:]]")]
 pub enum Token<'a> {
   #[token(r"!")] Not,
+  #[token(r"#")] Hash,
   #[token(r"$")] Dollar,
   #[token(r"%")] Rem,
   #[token(r"&")] BitAnd,
