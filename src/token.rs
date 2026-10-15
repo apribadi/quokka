@@ -10,6 +10,7 @@ pub enum Token {
   Dollar     = 0x24, // $
   Rem        = 0x25, // %
   BitAnd     = 0x26, // &
+  Apostrophe = 0x27, // '
   LParen     = 0x28, // (
   RParen     = 0x29, // )
   Mul        = 0x2a, // *
@@ -28,11 +29,13 @@ pub enum Token {
   RBracket   = 0x5d, // ]
   BitXor     = 0x5e, // ^
   Underscore = 0x5f, // _
+  Backtick   = 0x60, // `
   LBrace     = 0x7b, // {
   BitOr      = 0x7c, // |
   RBrace     = 0x7d, // }
   Tilde      = 0x7e, // ~
-  Error      = 0xa0,
+  Eof        = 0xa0,
+  Error,
   AddEqual,          // +=
   CmpEq,             // ==
   CmpGe,             // >=
@@ -59,7 +62,6 @@ pub enum Token {
   Loop,
   Return,
   True,
-  Var,
   While,
   Symbol,
   Int,

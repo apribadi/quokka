@@ -1,4 +1,4 @@
-type Symbol<'a> = &'a str;
+type Symbol<'a> = &'a [u8];
 
 #[derive(Debug)]
 pub enum Item<'a> {
@@ -15,14 +15,15 @@ pub struct Fun<'a> {
 #[derive(Debug)]
 pub enum Stmt<'a> {
   ExprList(Box<[Expr<'a>]>),                          // a, b
-  Let(Box<(Box<[Binding<'a>]>, Box<[Expr<'a>]>)>),    // let x, y = a, b
-  DefLocal(Box<(Symbol<'a>, Expr<'a>)>),              // let mutable x = a
-  SetLocal(Box<(Symbol<'a>, Expr<'a>)>),              // x = 1
-  SetField(Box<(Expr<'a>, Symbol<'a>, Expr<'a>)>),    // a.foo = 1
-  SetIndex(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),      // a[b] = c
-  SetLocalCompound(Box<(Symbol<'a>, Op2, Expr<'a>)>), // x += a
+  Let(Box<[Binding<'a>]>, Box<[Expr<'a>]>),          // let x, y = a, b
+  LetMutable(Symbol<'a>, Expr<'a>),          // let mutable x = a
+  DefLocal(Symbol<'a>, Expr<'a>),              // let mutable x = a
+  SetLocal(Symbol<'a>, Expr<'a>),              // x = 1
+  SetField(Expr<'a>, Symbol<'a>, Expr<'a>),    // a.foo = 1
+  SetIndex(Expr<'a>, Expr<'a>, Expr<'a>),      // a[b] = c
+  SetLocalCompound(Symbol<'a>, Op2, Expr<'a>), // x += a
   Break(Box<[Expr<'a>]>),                             // break a, b
-  While(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),            // while (a) { ... }
+  While(Expr<'a>, Box<[Stmt<'a>]>),            // while (a) { ... }
   Continue,                                           // continue
   Ret(Box<[Expr<'a>]>),                               // return a, b
 }
@@ -41,7 +42,7 @@ pub enum Expr<'a> {
   If(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),                      // if (a) { ... }
   IfElse(Box<(Expr<'a>, Box<[Stmt<'a>]>, Box<[Stmt<'a>]>)>), // if (a) { ... } else { ... }
   Select(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),               // a ? b : c
-  Var(Symbol<'a>),                                           // x
+  Variable(Symbol<'a>),                                           // x
   Call(Box<(Expr<'a>, Box<[Expr<'a>]>)>),                    // a(b, c)
   Loop(Box<[Stmt<'a>]>),                                     // loop { ... }
   Fail,

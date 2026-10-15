@@ -2,7 +2,37 @@
 
 use crate::prelude::*;
 use crate::token::Token;
-use std::mem::transmute;
+
+pub fn scan(source: &[u8]) -> Box<[(Token, bool, &'_ [u8])]> {
+  let t = &TRANSITION;
+  let u = &STATE_KIND;
+  let n = source.len();
+  let mut a = Vec::new();
+  let mut s = 0u8;
+  let mut j = 0;
+  let mut k = 0;
+  let mut p = false;
+  for i in 0 .. n {
+    let x = unsafe { *t[*source.get_unchecked(i) as usize].get_unchecked(s as usize) };
+    let y = unsafe { *u.get_unchecked(x as usize) };
+    if p && y != 2 {
+      p = false;
+      let z = unsafe { source.get_unchecked(k .. i) };
+      a.push((classify(s, z), k == j, z));
+      j = i;
+    }
+    if y == 1 {
+      p = true;
+      k = i;
+    }
+    s = x;
+  }
+  if p {
+    let z = unsafe { source.get_unchecked(k .. n) };
+    a.push((classify(s, z), k == j, z));
+  }
+  a.into_boxed_slice()
+}
 
 const NUM_STATES: usize = 24;
 const NUM_BYTE_KINDS: usize = 15;
@@ -88,21 +118,21 @@ static BYTE_KIND: [u8; 256] = [
 
 static TRANSITION_: [[u8; NUM_STATES]; NUM_BYTE_KINDS] = [
 // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F, G, H, I, J, K, L, M, N
-  [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, F, F, F, 1, 1, 1, 1, 1, 1, 1, 1], // 0 - illegal
-  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, F, F, F, 0, 0, 0, 0, 0, 0, 0, 0], // 1 - space
-  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, F, F, F, 0, 0, 0, 0, 0, 0, 0, 0], // 2 - newline
-  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, F, F, F, 3, 3, 3, 3, 3, 3, 3, 3], // 3 - semicolon
-  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, F, F, F, 4, 4, 4, 4, 4, 4, 4, 4], // 4 - punctuation
-  [5, 5, 5, 3, 5, H, 5, 5, N, 5, 5, N, N, F, F, F, 5, H, 5, 5, N, 5, 5, N], // 5 - dot
-  [6, 6, 6, 3, 6, 6, I, 6, 6, 6, 6, 6, 6, F, F, F, 6, 6, I, 6, 6, 6, 6, 6], // 6 - colon
-  [7, 7, 7, 3, 7, 7, 7, J, N, J, M, N, N, F, F, F, 7, 7, 7, J, N, M, M, N], // 7 - plus
-  [7, 7, 7, 3, 7, 7, 7, J, N, J, L, N, N, F, F, F, 7, 7, 7, J, N, L, M, N], // 8 - hyphen
-  [9, 9, 9, 3, 9, 9, 9, J, N, J, M, N, N, F, F, F, 9, 9, 9, J, N, M, M, N], // 9 - operator
-  [A, A, A, 3, A, A, A, M, N, M, L, N, N, F, F, F, A, A, A, M, N, L, M, N], // A - letter
-  [B, B, B, 3, B, B, B, 8, N, M, M, N, K, F, F, F, B, B, B, M, K, M, M, N], // B - zero
-  [C, C, C, 3, C, C, C, K, N, M, M, N, K, F, F, F, C, C, C, M, K, M, M, N], // C - digit
-  [D, D, D, 3, D, D, D, D, D, D, D, D, D, G, F, G, D, D, D, D, D, D, D, D], // D - quote
-  [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, E, F, E, 1, 1, 1, 1, 1, 1, 1, 1], // E - backslash
+  [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, F, F, F, 1, 1, 1, 1, 1, 1, 1, 1], // illegal
+  [0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, F, F, F, 0, 0, 0, 0, 0, 0, 0, 0], // space
+  [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, F, F, F, 0, 0, 0, 0, 0, 0, 0, 0], // newline
+  [3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, F, F, F, 3, 3, 3, 3, 3, 3, 3, 3], // semicolon
+  [4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, F, F, F, 4, 4, 4, 4, 4, 4, 4, 4], // punctuation
+  [5, 5, 5, 3, 5, H, 5, 5, N, 5, 5, N, N, F, F, F, 5, H, 5, 5, N, 5, 5, N], // dot
+  [6, 6, 6, 3, 6, 6, I, 6, 6, 6, 6, 6, 6, F, F, F, 6, 6, I, 6, 6, 6, 6, 6], // colon
+  [7, 7, 7, 3, 7, 7, 7, J, N, J, M, N, N, F, F, F, 7, 7, 7, J, N, M, M, N], // plus
+  [7, 7, 7, 3, 7, 7, 7, J, N, J, L, N, N, F, F, F, 7, 7, 7, J, N, L, M, N], // hyphen
+  [9, 9, 9, 3, 9, 9, 9, J, N, J, M, N, N, F, F, F, 9, 9, 9, J, N, M, M, N], // operator
+  [A, A, A, 3, A, A, A, M, N, M, L, N, N, F, F, F, A, A, A, M, N, L, M, N], // letter
+  [B, B, B, 3, B, B, B, 8, N, M, M, N, K, F, F, F, B, B, B, M, K, M, M, N], // zero
+  [C, C, C, 3, C, C, C, K, N, M, M, N, K, F, F, F, C, C, C, M, K, M, M, N], // digit
+  [D, D, D, 3, D, D, D, D, D, D, D, D, D, G, F, G, D, D, D, D, D, D, D, D], // quote
+  [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, E, F, E, 1, 1, 1, 1, 1, 1, 1, 1], // backslash
 ];
 
 // ===== STATE KIND =====
@@ -130,41 +160,10 @@ static TRANSITION: [[u8; 32]; 256] = {
   t
 };
 
-pub fn scan(source: &[u8]) -> Box<[(Token, bool, &'_ [u8])]> {
-  let t = &TRANSITION;
-  let u = &STATE_KIND;
-  let n = source.len();
-  let mut a = Vec::new();
-  let mut s = 0u8;
-  let mut j = 0;
-  let mut k = 0;
-  let mut p = false;
-  for i in 0 .. n {
-    let x = unsafe { *t[*source.get_unchecked(i) as usize].get_unchecked(s as usize) };
-    let y = unsafe { *u.get_unchecked(x as usize) };
-    if p && y != 2 {
-      p = false;
-      let z = unsafe { source.get_unchecked(k .. i) };
-      a.push((classify(s, z), k == j, z));
-      j = i;
-    }
-    if y == 1 {
-      p = true;
-      k = i;
-    }
-    s = x;
-  }
-  if p {
-    let z = unsafe { source.get_unchecked(k .. n) };
-    a.push((classify(s, z), k == j, z));
-  }
-  a.into_boxed_slice()
-}
-
 fn classify(last_state: u8, span: &[u8]) -> Token {
   match last_state {
     4 | 5 | 6 | 7 =>
-      unsafe { transmute::<u8, Token>(*span.get_unchecked(0)) },
+      unsafe { std::mem::transmute::<u8, Token>(*span.get_unchecked(0)) },
     8 | B | C | K =>
       Token::Int,
     H =>
@@ -202,7 +201,6 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b"loop" => Token::Loop,
         b"return" => Token::Return,
         b"true" => Token::True,
-        b"var" => Token::Var,
         b"while" => Token::While,
         _ => Token::Symbol,
       },
@@ -220,8 +218,10 @@ fn test_scan() {
   for (t, a, s) in scan(
     br#"+++++ foo 100 +100 -=
       only-kebob-case
+      _``'
       asdf@@@
       @@123 ; blah blah
+      000
       0.0.0.0
       +0.0.0.0
       1.1.1.1
@@ -241,8 +241,13 @@ fn test_scan() {
       "+100" Int false
       "-=" Error false
       "only-kebob-case" Symbol false
+      "_" Underscore false
+      "`" Backtick true
+      "`" Backtick true
+      "'" Apostrophe true
       "asdf@@@" Error false
       "@@123" Error false
+      "000" Error false
       "0.0.0.0" Error false
       "+0.0.0.0" Error false
       "1.1.1.1" Error false
