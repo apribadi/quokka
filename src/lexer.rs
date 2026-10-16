@@ -162,7 +162,7 @@ static TRANSITION: [[u8; 32]; 256] = {
 
 fn classify(last_state: u8, span: &[u8]) -> Token {
   match last_state {
-    4 | 5 | 6 | 7 =>
+    4 | 5 | 6 | 7 | 9 =>
       unsafe { std::mem::transmute::<u8, Token>(*span.get_unchecked(0)) },
     8 | B | C | K =>
       Token::Int,
@@ -171,17 +171,16 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         3 => Token::DotDotDot,
         _ => Token::Error,
       }
-    9 | J =>
+    J =>
       match span {
-        b"_" => Token::Underscore,
         b"==" => Token::CmpEq,
         b">=" => Token::CmpGe,
         b"<=" => Token::CmpLe,
         b"!=" => Token::CmpNe,
         b"--" => Token::Dec,
         b"++" => Token::Inc,
-        b"&&" => Token::LogAnd,
-        b"||" => Token::LogOr,
+        b"&&" => Token::ShortCircuitAnd,
+        b"||" => Token::ShortCircuitOr,
         b"<<" => Token::Shl,
         b">>" => Token::Shr,
         _ => Token::Error,
@@ -199,6 +198,7 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b"if" => Token::If,
         b"let" => Token::Let,
         b"loop" => Token::Loop,
+        b"mutable" => Token::Mutable,
         b"return" => Token::Return,
         b"true" => Token::True,
         b"while" => Token::While,
@@ -216,7 +216,9 @@ fn test_scan() {
   use std::fmt::Write;
   let mut o = String::new();
   for (t, a, s) in scan(
-    br#"+++++ foo 100 +100 -=
+    br#"
+      * /
+      +++++ foo 100 +100 -=
       only-kebob-case
       _``'
       asdf@@@
@@ -235,7 +237,9 @@ fn test_scan() {
     write!(&mut o, "{:?} {:?} {:?}\n", str::from_utf8(s).unwrap(), t, a);
   }
   expect_test::expect![[r#"
-      "+++++" Error true
+      "*" Mul false
+      "/" Div false
+      "+++++" Error false
       "foo" Symbol false
       "100" Int false
       "+100" Int false

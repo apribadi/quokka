@@ -11,13 +11,14 @@ use crate::ast::Stmt;
 use crate::lexer::scan;
 use crate::token::Token;
 
-/*
-pub fn parse(source: &[u8]) -> Box<[Item<'a>]> {
-  let mut t = T::new(source);
+// TODO: consider defining a token immediately following a "}" as never attached
+
+pub fn parse<'a>(source: &'a [u8]) -> Box<[Item<'a>]> {
+  let source = scan(source);
+  let mut t = Parser::new(&source);
   t.parse_item_list();
   t.items.into_boxed_slice()
 }
-*/
 
 struct Parser<'a, 'b> {
   source: &'b [(Token, bool, &'a [u8])],
@@ -35,8 +36,8 @@ struct Parser<'a, 'b> {
 enum Priority {
   Any,
   Select,
-  LogOr,
-  LogAnd,
+  ShortCircuitOr,
+  ShortCircuitAnd,
   Cmp,
   BitOr,
   BitXor,
@@ -91,8 +92,12 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.token_is_attached
   }
 
-  fn token_span(&self) -> &'b [u8] {
+  fn token_span(&self) -> &'a [u8] {
     self.token_span
+  }
+
+  fn token_str(&self) -> &'a str {
+    str::from_utf8(self.token_span).unwrap()
   }
 
   fn expect(&mut self, token: Token) {
@@ -103,19 +108,25 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn expect_symbol(&mut self) -> &'b [u8] {
+  fn expect_attached(&mut self, token: Token) {
+    if self.token() != token  || ! self.token_is_attached() {
+      self.on_error_missing_expected_attached_token(token);
+    } else {
+      self.next();
+    }
+  }
+
+  fn expect_symbol(&mut self) -> &'a str {
     if self.token() != Token::Symbol {
       self.on_error_missing_expected_token(Token::Symbol);
       // TODO: Option::None?
-      b"!!!"
+      ""
     } else {
-      let symbol = self.token_span();
+      let symbol = self.token_str();
       self.next();
       symbol
     }
   }
-
-  /*
 
   fn parse_item_list(&mut self) {
     loop {
@@ -143,7 +154,7 @@ impl<'a, 'b> Parser<'a, 'b> {
   fn parse_binding(&mut self) {
     match self.token() {
       Token::Symbol => {
-        let s = self.token_span();
+        let s = self.token_str();
         self.on_binding(Some(s));
         self.next();
       }
@@ -172,7 +183,7 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn parse_expr(&mut self) {
-    self.parse_expr_prec(P::Any);
+    self.parse_expr_prec(Priority::Any);
   }
 
   fn parse_expr_list(&mut self, stop: Token) -> usize {
@@ -188,13 +199,13 @@ impl<'a, 'b> Parser<'a, 'b> {
     return n_exprs;
   }
 
-  fn parse_expr_prec(&mut self, p: P) {
+  fn parse_expr_prec(&mut self, p: Priority) {
     let _: bool = self.parse_prec(p, false);
   }
 
   // returns `true` if we parsed a statement
 
-  fn parse_prec(&mut self, p: P, is_stmt: bool) -> bool {
+  fn parse_prec(&mut self, p: Priority, is_stmt: bool) -> bool {
     match self.token() {
       Token::LParen => {
         self.next();
@@ -209,19 +220,19 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.next();
         self.on_literal_bool(false);
       }
-      Token::Number => {
-        let value = self.token_span();
+      Token::Int => {
+        let value = self.token_str();
         self.next();
-        self.on_literal_number(value);
+        self.on_literal_int(value);
       }
       Token::Symbol => {
-        let symbol = self.token_span();
+        let symbol = self.token_str();
         self.next();
         match self.token() {
           Token::Equal if is_stmt => {
             self.next();
             self.parse_expr();
-            self.on_set(symbol);
+            self.on_set_local(symbol);
             return true;
           }
           Token::Dec => {
@@ -239,22 +250,22 @@ impl<'a, 'b> Parser<'a, 'b> {
       }
       Token::Dec => {
         self.next();
-        let s = self.expect_symbol();
-        self.on_pre_op(s, Op1::Dec);
+        let symbol = self.expect_symbol();
+        self.on_inc_dec_local(PrePost::Pre, IncDec::Dec, symbol);
       }
       Token::Inc => {
         self.next();
-        let s = self.expect_symbol();
-        self.on_pre_op(s, Op1::Inc);
+        let symbol = self.expect_symbol();
+        self.on_inc_dec_local(PrePost::Pre, IncDec::Inc, symbol);
       }
       Token::Hyphen => {
         self.next();
-        self.parse_expr_prec(P::Prefix);
+        self.parse_expr_prec(Priority::Prefix);
         self.on_op1(Op1::Neg);
       }
       Token::Not => {
         self.next();
-        self.parse_expr_prec(P::Prefix);
+        self.parse_expr_prec(Priority::Prefix);
         self.on_op1(Op1::Not);
       }
       Token::If => {
@@ -281,110 +292,107 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     loop {
       match self.token() {
-        Token::Query if p <= P::Select => {
+        Token::Query if p <= Priority::Select => {
           self.next();
           self.parse_expr();
           self.expect(Token::Colon);
-          self.parse_expr_prec(P::Select);
+          self.parse_expr_prec(Priority::Select);
           self.on_select();
         }
-        Token::Or if p < P::Or => {
-          // TODO: right assoc
+        Token::ShortCircuitOr if p <= Priority::ShortCircuitOr => {
           self.next();
-          self.parse_expr_prec(P::Or);
-          self.on_or();
+          self.parse_expr_prec(Priority::ShortCircuitOr);
+          self.on_short_circuit_or();
         }
-        Token::And if p < P::And => {
-          // TODO: right assoc
+        Token::ShortCircuitAnd if p <= Priority::ShortCircuitAnd => {
           self.next();
-          self.parse_expr_prec(P::And);
-          self.on_and();
+          self.parse_expr_prec(Priority::ShortCircuitAnd);
+          self.on_short_circuit_and();
         }
-        Token::CmpEq if p < P::Cmp => {
+        Token::CmpEq if p < Priority::Cmp => {
           self.next();
-          self.parse_expr_prec(P::Cmp);
+          self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpEq);
         }
-        Token::CmpGe if p < P::Cmp => {
+        Token::CmpGe if p < Priority::Cmp => {
           self.next();
-          self.parse_expr_prec(P::Cmp);
+          self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpGe);
         }
-        Token::CmpGt if p < P::Cmp => {
+        Token::CmpGt if p < Priority::Cmp => {
           self.next();
-          self.parse_expr_prec(P::Cmp);
+          self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpGt);
         }
-        Token::CmpLe if p < P::Cmp => {
+        Token::CmpLe if p < Priority::Cmp => {
           self.next();
-          self.parse_expr_prec(P::Cmp);
+          self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpLe);
         }
-        Token::CmpLt if p < P::Cmp => {
+        Token::CmpLt if p < Priority::Cmp => {
           self.next();
-          self.parse_expr_prec(P::Cmp);
+          self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpLt);
         }
-        Token::CmpNe if p < P::Cmp => {
+        Token::CmpNe if p < Priority::Cmp => {
           self.next();
-          self.parse_expr_prec(P::Cmp);
+          self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpNe);
         }
-        Token::BitOr if p < P::BitOr => {
+        Token::BitOr if p < Priority::BitOr => {
           self.next();
-          self.parse_expr_prec(P::BitOr);
+          self.parse_expr_prec(Priority::BitOr);
           self.on_op2(Op2::BitOr);
         }
-        Token::BitXor if p < P::BitXor => {
+        Token::BitXor if p < Priority::BitXor => {
           self.next();
-          self.parse_expr_prec(P::BitXor);
+          self.parse_expr_prec(Priority::BitXor);
           self.on_op2(Op2::BitXor);
         }
-        Token::BitAnd if p < P::BitAnd => {
+        Token::BitAnd if p < Priority::BitAnd => {
           self.next();
-          self.parse_expr_prec(P::BitAnd);
+          self.parse_expr_prec(Priority::BitAnd);
           self.on_op2(Op2::BitAnd);
         }
-        Token::Shl if p < P::Shift => {
+        Token::Shl if p < Priority::Shift => {
           self.next();
-          self.parse_expr_prec(P::Shift);
+          self.parse_expr_prec(Priority::Shift);
           self.on_op2(Op2::Shl);
         }
-        Token::Shr if p < P::Shift => {
+        Token::Shr if p < Priority::Shift => {
           self.next();
-          self.parse_expr_prec(P::Shift);
+          self.parse_expr_prec(Priority::Shift);
           self.on_op2(Op2::Shr);
         }
-        Token::Add if p < P::Add => {
+        Token::Add if p < Priority::Add => {
           self.next();
-          self.parse_expr_prec(P::Add);
+          self.parse_expr_prec(Priority::Add);
           self.on_op2(Op2::Add);
         }
-        Token::Hyphen if p < P::Add => {
+        Token::Hyphen if p < Priority::Add => {
           self.next();
-          self.parse_expr_prec(P::Add);
+          self.parse_expr_prec(Priority::Add);
           self.on_op2(Op2::Sub);
         }
-        Token::Div if p < P::Mul => {
+        Token::Div if p < Priority::Mul => {
           self.next();
-          self.parse_expr_prec(P::Mul);
+          self.parse_expr_prec(Priority::Mul);
           self.on_op2(Op2::Div);
         }
-        Token::Mul if p < P::Mul => {
+        Token::Mul if p < Priority::Mul => {
           self.next();
-          self.parse_expr_prec(P::Mul);
+          self.parse_expr_prec(Priority::Mul);
           self.on_op2(Op2::Mul);
         }
-        Token::Rem if p < P::Mul => {
+        Token::Rem if p < Priority::Mul => {
           self.next();
-          self.parse_expr_prec(P::Mul);
+          self.parse_expr_prec(Priority::Mul);
           self.on_op2(Op2::Rem);
         }
-        Token::Field if self.token_is_attached() => {
-          // TODO: not after block?
-          // TODO: maybe define attachment to never include attaching to an
-          // RBrace
-          let symbol = &self.token_span()[1 ..];
+        Token::Dot if self.token_is_attached() => {
+          self.next();
+          self.expect_attached(Token::Symbol);
+          let symbol = self.token_str();
           self.next();
           if is_stmt && self.token() == Token::Equal {
             self.next();
@@ -396,7 +404,6 @@ impl<'a, 'b> Parser<'a, 'b> {
           }
         }
         Token::LBracket if self.token_is_attached() => {
-          // TODO: not after block?
           self.next();
           self.parse_expr();
           self.expect(Token::RBracket);
@@ -410,7 +417,6 @@ impl<'a, 'b> Parser<'a, 'b> {
           }
         }
         Token::LParen if self.token_is_attached() => {
-          // TODO: not after block?
           self.next();
           let n_args = self.parse_expr_list(Token::RParen);
           self.expect(Token::RParen);
@@ -451,22 +457,31 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Token::Let => {
           self.next();
-          // NB: we allow a list of zero bindings, like
-          //
-          //   let = f(x)
-          //
-          // which is a bit weird. but works semantically
-          let n_bindings = self.parse_binding_list(Token::Equal);
-          self.expect(Token::Equal);
-          let mut n_exprs = 0;
-          loop {
-            self.parse_expr();
-            n_exprs += 1;
-            if self.token() != Token::Comma { break; }
+          if self.token() == Token::Mutable {
             self.next();
+            let symbol = self.expect_symbol();
+            self.expect(Token::Equal);
+            self.parse_expr();
+            self.on_let_mutable(symbol);
+            n_stmts += 1;
+          } else {
+            // NB: we allow a list of zero bindings, like
+            //
+            //   let = f(x)
+            //
+            // which is a bit weird. but works semantically
+            let n_bindings = self.parse_binding_list(Token::Equal);
+            self.expect(Token::Equal);
+            let mut n_exprs = 0;
+            loop {
+              self.parse_expr();
+              n_exprs += 1;
+              if self.token() != Token::Comma { break; }
+              self.next();
+            }
+            self.on_let(n_bindings, n_exprs);
+            n_stmts += 1;
           }
-          self.on_let(n_bindings, n_exprs);
-          n_stmts += 1;
         }
         Token::Return => {
           self.next();
@@ -476,14 +491,6 @@ impl<'a, 'b> Parser<'a, 'b> {
           self.expect(Token::RBrace);
           break;
         }
-        Token::Var => {
-          self.next();
-          let symbol = self.expect_symbol();
-          self.expect(Token::Equal);
-          self.parse_expr();
-          self.on_variable(symbol);
-          n_stmts += 1;
-        }
         Token::While => {
           self.next();
           self.parse_expr();
@@ -492,9 +499,9 @@ impl<'a, 'b> Parser<'a, 'b> {
           n_stmts += 1;
         }
         _ => {
-          let pos = self.token_start();
+          let pos = self.token_index();
 
-          if ! self.parse_prec(P::Any, true) {
+          if ! self.parse_prec(Priority::Any, true) {
             let mut n_exprs = 1;
             while self.token() == Token::Comma {
               self.next();
@@ -506,15 +513,14 @@ impl<'a, 'b> Parser<'a, 'b> {
 
           n_stmts += 1;
 
-          if self.token_start() == pos {
+          if self.token_index() == pos {
             // NB: If we couldn't parse anything at all, then we immediately
             // close the block so that we don't get stuck in an infinite loop.
             //
             // Note that we already know that there ISN'T an RBrace here, so the
             // expect will fail.
             //
-            // Also, note that in this case we still emit an `undefined`
-            // expr/stmt.
+            // Also, note that in this case we still emit a `fail` expr/stmt.
 
             self.expect(Token::RBrace);
             break;
@@ -525,8 +531,6 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     return n_stmts;
   }
-
-  */
 
   // ------- PARSER OUTPUT TO AST -------
 
@@ -562,18 +566,18 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.stmts.pop_list(n).collect()
   }
 
-  fn on_fun(&mut self, name: &'a [u8], n_args: usize, n_stmts: usize) {
+  fn on_fun(&mut self, name: &'a str, n_args: usize, n_stmts: usize) {
     let z = self.pop_stmt_list(n_stmts);
     let y = self.pop_binding_list(n_args);
     self.push_item(Item::Fun(Box::new(Fun { name, args: y, body: z })));
   }
 
-  fn on_binding(&mut self, name: Option<&'a [u8]>) {
+  fn on_binding(&mut self, name: Option<&'a str>) {
     let x = Binding { name };
     self.push_binding(x);
   }
 
-  fn on_variable(&mut self, symbol: &'a [u8]) {
+  fn on_variable(&mut self, symbol: &'a str) {
     self.push_expr(Expr::Variable(symbol));
   }
 
@@ -581,9 +585,9 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_expr(Expr::ConstBool(value));
   }
 
-  fn on_literal_int(&mut self, x: &'a [u8]) {
+  fn on_literal_int(&mut self, x: &'a str) {
     let n =
-      match i64::from_str_radix(str::from_utf8(x).unwrap(), 10) {
+      match i64::from_str_radix(x, 10) {
         Err(_) => {
           self.push_expr(Expr::Fail);
           return;
@@ -600,16 +604,16 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_expr(Expr::Select(Box::new((p, x, y))));
   }
 
-  fn on_log_or(&mut self) {
+  fn on_short_circuit_or(&mut self) {
     let y = self.pop_expr();
     let x = self.pop_expr();
-    self.push_expr(Expr::LogOr(Box::new((x, y))));
+    self.push_expr(Expr::ShortCircuitOr(Box::new((x, y))));
   }
 
-  fn on_log_and(&mut self) {
+  fn on_short_circuit_and(&mut self) {
     let y = self.pop_expr();
     let x = self.pop_expr();
-    self.push_expr(Expr::LogAnd(Box::new((x, y))));
+    self.push_expr(Expr::ShortCircuitAnd(Box::new((x, y))));
   }
 
   fn on_op1(&mut self, op: Op1) {
@@ -623,11 +627,11 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_expr(Expr::Op2(Box::new((op, x, y))));
   }
 
-  fn on_inc_dec_local(&mut self, p: PrePost, op: IncDec, symbol: &'a [u8]) {
+  fn on_inc_dec_local(&mut self, p: PrePost, op: IncDec, symbol: &'a str) {
     self.push_expr(Expr::IncDecLocal(Box::new((p, op, symbol))));
   }
 
-  fn on_get_field(&mut self, symbol: &'a [u8]) {
+  fn on_get_field(&mut self, symbol: &'a str) {
     let x = self.pop_expr();
     self.push_expr(Expr::GetField(Box::new((x, symbol))));
   }
@@ -687,12 +691,12 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::Ret(x));
   }
 
-  fn on_set_local(&mut self, symbol: &'a [u8]) {
+  fn on_set_local(&mut self, symbol: &'a str) {
     let x = self.pop_expr();
     self.push_stmt(Stmt::SetLocal(symbol, x));
   }
 
-  fn on_set_field(&mut self, symbol: &'a [u8]) {
+  fn on_set_field(&mut self, symbol: &'a str) {
     let y = self.pop_expr();
     let x = self.pop_expr();
     self.push_stmt(Stmt::SetField(x, symbol, y));
@@ -705,7 +709,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::SetIndex(x, y, z));
   }
 
-  fn on_let_mutable(&mut self, symbol: &'a [u8]) {
+  fn on_let_mutable(&mut self, symbol: &'a str) {
     let x = self.pop_expr();
     self.push_stmt(Stmt::LetMutable(symbol, x));
   }
@@ -717,6 +721,11 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn on_error_missing_expected_token(&mut self, token: Token) {
+    let _ = token;
+    // TODO: report error on missing expected token
+  }
+
+  fn on_error_missing_expected_attached_token(&mut self, token: Token) {
     let _ = token;
     // TODO: report error on missing expected token
   }

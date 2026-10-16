@@ -1,4 +1,4 @@
-type Symbol<'a> = &'a [u8];
+type Symbol<'a> = &'a str;
 
 #[derive(Debug)]
 pub enum Item<'a> {
@@ -14,35 +14,35 @@ pub struct Fun<'a> {
 
 #[derive(Debug)]
 pub enum Stmt<'a> {
-  ExprList(Box<[Expr<'a>]>),                          // a, b
-  Let(Box<[Binding<'a>]>, Box<[Expr<'a>]>),          // let x, y = a, b
-  LetMutable(Symbol<'a>, Expr<'a>),          // let mutable x = a
+  ExprList(Box<[Expr<'a>]>),                   // a, b
+  Let(Box<[Binding<'a>]>, Box<[Expr<'a>]>),    // let x, y = a, b
+  LetMutable(Symbol<'a>, Expr<'a>),            // let mutable x = a
   DefLocal(Symbol<'a>, Expr<'a>),              // let mutable x = a
   SetLocal(Symbol<'a>, Expr<'a>),              // x = 1
   SetField(Expr<'a>, Symbol<'a>, Expr<'a>),    // a.foo = 1
   SetIndex(Expr<'a>, Expr<'a>, Expr<'a>),      // a[b] = c
   SetLocalCompound(Symbol<'a>, Op2, Expr<'a>), // x += a
-  Break(Box<[Expr<'a>]>),                             // break a, b
+  Break(Box<[Expr<'a>]>),                      // break a, b
   While(Expr<'a>, Box<[Stmt<'a>]>),            // while (a) { ... }
-  Continue,                                           // continue
-  Ret(Box<[Expr<'a>]>),                               // return a, b
+  Continue,                                    // continue
+  Ret(Box<[Expr<'a>]>),                        // return a, b
 }
 
 #[derive(Debug)]
 pub enum Expr<'a> {
   ConstBool(bool),                                           // true OR false
   ConstI64(i64),                                             // 3
-  LogAnd(Box<(Expr<'a>, Expr<'a>)>),                         // a && b
-  LogOr(Box<(Expr<'a>, Expr<'a>)>),                          // a || b
-  Op1(Box<(Op1, Expr<'a>)>),                                 // - a
-  Op2(Box<(Op2, Expr<'a>, Expr<'a>)>),                       // a + b
   GetField(Box<(Expr<'a>, Symbol<'a>)>),                     // a.foo
   GetIndex(Box<(Expr<'a>, Expr<'a>)>),                       // a[b]
-  IncDecLocal(Box<(PrePost, IncDec, Symbol<'a>)>),           // ++ x OR x ++
   If(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),                      // if (a) { ... }
   IfElse(Box<(Expr<'a>, Box<[Stmt<'a>]>, Box<[Stmt<'a>]>)>), // if (a) { ... } else { ... }
+  IncDecLocal(Box<(PrePost, IncDec, Symbol<'a>)>),           // ++ x OR x ++
+  Op1(Box<(Op1, Expr<'a>)>),                                 // - a
+  Op2(Box<(Op2, Expr<'a>, Expr<'a>)>),                       // a + b
   Select(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),               // a ? b : c
-  Variable(Symbol<'a>),                                           // x
+  ShortCircuitAnd(Box<(Expr<'a>, Expr<'a>)>),                // a && b
+  ShortCircuitOr(Box<(Expr<'a>, Expr<'a>)>),                 // a || b
+  Variable(Symbol<'a>),                                      // x
   Call(Box<(Expr<'a>, Box<[Expr<'a>]>)>),                    // a(b, c)
   Loop(Box<[Stmt<'a>]>),                                     // loop { ... }
   Fail,

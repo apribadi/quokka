@@ -44,9 +44,9 @@ pub enum Token {
   Dec,               // --
   DotDotDot,         // ...
   Inc,               // ++
-  LogAnd,            // &&
-  LogOr,             // ||
   Shl,               // <<
+  ShortCircuitAnd,   // &&
+  ShortCircuitOr,    // ||
   Shr,               // >>
   SubEqual,          // -=
   Break,
@@ -60,6 +60,7 @@ pub enum Token {
   If,
   Let,
   Loop,
+  Mutable,
   Return,
   True,
   While,
