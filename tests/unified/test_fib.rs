@@ -6,7 +6,7 @@ fn test_fib_loop() {
   let mut out = String::new();
 
   util::dump(&mut out, "
-    fun fib(n) {
+    fun _(n) {
       let mutable a = 1
       let mutable b = 0
       let mutable n = n

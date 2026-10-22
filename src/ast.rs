@@ -7,7 +7,7 @@ pub enum Item<'a> {
 
 #[derive(Debug)]
 pub struct Fun<'a> {
-  pub name: Symbol<'a>,
+  pub name: Option<Symbol<'a>>,
   pub args: Box<[Binding<'a>]>,
   pub body: Box<[Stmt<'a>]>,
 }
@@ -16,8 +16,7 @@ pub struct Fun<'a> {
 pub enum Stmt<'a> {
   ExprList(Box<[Expr<'a>]>),                   // a, b
   Let(Box<[Binding<'a>]>, Box<[Expr<'a>]>),    // let x, y = a, b
-  LetMutable(Symbol<'a>, Expr<'a>),            // let mutable x = a
-  DefLocal(Symbol<'a>, Expr<'a>),              // let mutable x = a
+  DefLocal(Option<Symbol<'a>>, Expr<'a>),      // let mutable x = a
   SetLocal(Symbol<'a>, Expr<'a>),              // x = 1
   SetField(Expr<'a>, Symbol<'a>, Expr<'a>),    // a.foo = 1
   SetIndex(Expr<'a>, Expr<'a>, Expr<'a>),      // a[b] = c

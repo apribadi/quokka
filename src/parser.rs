@@ -116,15 +116,21 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn expect_symbol(&mut self) -> &'a str {
-    if self.token() != Token::Symbol {
-      self.on_error_missing_expected_token(Token::Symbol);
-      // TODO: Option::None?
-      ""
-    } else {
-      let symbol = self.token_str();
-      self.next();
-      symbol
+  fn parse_name(&mut self) -> Option<&'a str> {
+    match self.token() {
+      Token::Symbol => {
+        let s = self.token_str();
+        self.next();
+        Some(s)
+      }
+      Token::Underscore => {
+        self.next();
+        None
+      }
+      _ => {
+        self.on_error_missing_expected_token(Token::Symbol);
+        None
+      }
     }
   }
 
@@ -136,7 +142,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Token::Fun => {
           self.next();
-          let name = self.expect_symbol();
+          let name = self.parse_name();
           self.expect(Token::LParen);
           let m = self.parse_binding_list(Token::RParen);
           self.expect(Token::RParen);
@@ -151,29 +157,12 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn parse_binding(&mut self) {
-    match self.token() {
-      Token::Symbol => {
-        let s = self.token_str();
-        self.on_binding(Some(s));
-        self.next();
-      }
-      Token::Underscore => {
-        self.on_binding(None);
-        self.next();
-      }
-      _ => {
-        self.on_error_missing_expected_token(Token::Symbol);
-        self.on_binding(None);
-      }
-    }
-  }
-
   fn parse_binding_list(&mut self, stop: Token) -> usize {
     let mut n_bindings = 0;
     if self.token() != stop {
       loop {
-        self.parse_binding();
+        let name = self.parse_name();
+        self.on_binding(name);
         n_bindings += 1;
         if self.token() != Token::Comma { break; }
         self.next();
@@ -250,13 +239,25 @@ impl<'a, 'b> Parser<'a, 'b> {
       }
       Token::Dec => {
         self.next();
-        let symbol = self.expect_symbol();
-        self.on_inc_dec_local(PrePost::Pre, IncDec::Dec, symbol);
+        if self.token() == Token::Symbol {
+          let s = self.token_str();
+          self.next();
+          self.on_inc_dec_local(PrePost::Pre, IncDec::Dec, s);
+        } else {
+          self.on_error_missing_expected_token(Token::Symbol);
+          self.on_fail_expr();
+        }
       }
       Token::Inc => {
         self.next();
-        let symbol = self.expect_symbol();
-        self.on_inc_dec_local(PrePost::Pre, IncDec::Inc, symbol);
+        if self.token() == Token::Symbol {
+          let s = self.token_str();
+          self.next();
+          self.on_inc_dec_local(PrePost::Pre, IncDec::Inc, s);
+        } else {
+          self.on_error_missing_expected_token(Token::Symbol);
+          self.on_fail_expr();
+        }
       }
       Token::Hyphen => {
         self.next();
@@ -459,10 +460,10 @@ impl<'a, 'b> Parser<'a, 'b> {
           self.next();
           if self.token() == Token::Mutable {
             self.next();
-            let symbol = self.expect_symbol();
+            let name = self.parse_name();
             self.expect(Token::Equal);
             self.parse_expr();
-            self.on_let_mutable(symbol);
+            self.on_let_mutable(name);
             n_stmts += 1;
           } else {
             // NB: we allow a list of zero bindings, like
@@ -566,15 +567,14 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.stmts.pop_list(n).collect()
   }
 
-  fn on_fun(&mut self, name: &'a str, n_args: usize, n_stmts: usize) {
+  fn on_fun(&mut self, name: Option<&'a str>, n_args: usize, n_stmts: usize) {
     let z = self.pop_stmt_list(n_stmts);
     let y = self.pop_binding_list(n_args);
     self.push_item(Item::Fun(Box::new(Fun { name, args: y, body: z })));
   }
 
   fn on_binding(&mut self, name: Option<&'a str>) {
-    let x = Binding { name };
-    self.push_binding(x);
+    self.push_binding(Binding { name });
   }
 
   fn on_variable(&mut self, symbol: &'a str) {
@@ -709,15 +709,19 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::SetIndex(x, y, z));
   }
 
-  fn on_let_mutable(&mut self, symbol: &'a str) {
+  fn on_let_mutable(&mut self, name: Option<&'a str>) {
     let x = self.pop_expr();
-    self.push_stmt(Stmt::LetMutable(symbol, x));
+    self.push_stmt(Stmt::DefLocal(name, x));
   }
 
   fn on_while(&mut self, n_stmts: usize) {
     let y = self.pop_stmt_list(n_stmts);
     let x = self.pop_expr();
     self.push_stmt(Stmt::While(x, y));
+  }
+
+  fn on_fail_expr(&mut self) {
+    self.push_expr(Expr::Fail);
   }
 
   fn on_error_missing_expected_token(&mut self, token: Token) {
@@ -732,6 +736,6 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   fn on_error_missing_expr(&mut self) {
     // TODO: report error on missing expected expression
-    self.push_expr(Expr::Fail);
+    self.on_fail_expr();
   }
 }

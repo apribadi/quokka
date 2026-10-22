@@ -91,7 +91,7 @@
 
 - a function call is a block terminator, takes continuation labels
 
-# desugaring 
+# desugaring
 
 ## evaluation order
 

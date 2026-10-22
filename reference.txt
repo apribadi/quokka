@@ -8,3 +8,4 @@
 - OCaml
 - Effekt
 - Java
+- Lua
