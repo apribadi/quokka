@@ -5,8 +5,6 @@ use crate::ast::Fun;
 use crate::ast::Item;
 use crate::ast::Op1;
 use crate::ast::Op2;
-use crate::ast::PrePost;
-use crate::ast::IncDec;
 use crate::ast::Stmt;
 use crate::lexer::scan;
 use crate::token::Token;
@@ -108,14 +106,6 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn expect_attached(&mut self, token: Token) {
-    if self.token() != token  || ! self.token_is_attached() {
-      self.on_error_missing_expected_attached_token(token);
-    } else {
-      self.next();
-    }
-  }
-
   fn parse_name(&mut self) -> Option<&'a str> {
     match self.token() {
       Token::Symbol => {
@@ -131,6 +121,17 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.on_error_missing_expected_token(Token::Symbol);
         None
       }
+    }
+  }
+
+  fn parse_path_segment(&mut self) -> &'a str {
+    if self.token() == Token::Symbol && self.token_is_attached() {
+      let s = self.token_str();
+      self.next();
+      s
+    } else {
+      self.on_error_missing_expected_token(Token::Symbol); // log expected attachment ??
+      ""
     }
   }
 
@@ -224,39 +225,21 @@ impl<'a, 'b> Parser<'a, 'b> {
             self.on_set_local(symbol);
             return true;
           }
-          Token::Dec => {
+          Token::AddEqual if is_stmt => {
             self.next();
-            self.on_inc_dec_local(PrePost::Post, IncDec::Dec, symbol);
+            self.parse_expr();
+            self.on_set_local_compound(symbol, Op2::Add);
+            return true;
           }
-          Token::Inc => {
+          Token::SubEqual if is_stmt => {
             self.next();
-            self.on_inc_dec_local(PrePost::Post, IncDec::Inc, symbol);
+            self.parse_expr();
+            self.on_set_local_compound(symbol, Op2::Add);
+            return true;
           }
           _ => {
             self.on_variable(symbol);
           }
-        }
-      }
-      Token::Dec => {
-        self.next();
-        if self.token() == Token::Symbol {
-          let s = self.token_str();
-          self.next();
-          self.on_inc_dec_local(PrePost::Pre, IncDec::Dec, s);
-        } else {
-          self.on_error_missing_expected_token(Token::Symbol);
-          self.on_fail_expr();
-        }
-      }
-      Token::Inc => {
-        self.next();
-        if self.token() == Token::Symbol {
-          let s = self.token_str();
-          self.next();
-          self.on_inc_dec_local(PrePost::Pre, IncDec::Inc, s);
-        } else {
-          self.on_error_missing_expected_token(Token::Symbol);
-          self.on_fail_expr();
         }
       }
       Token::Hyphen => {
@@ -392,16 +375,14 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Token::Dot if self.token_is_attached() => {
           self.next();
-          self.expect_attached(Token::Symbol);
-          let symbol = self.token_str();
-          self.next();
+          let field = self.parse_path_segment();
           if is_stmt && self.token() == Token::Equal {
             self.next();
             self.parse_expr();
-            self.on_set_field(symbol);
+            self.on_set_field(field);
             return true;
           } else {
-            self.on_get_field(symbol);
+            self.on_get_field(field);
           }
         }
         Token::LBracket if self.token_is_attached() => {
@@ -627,10 +608,6 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_expr(Expr::Op2(Box::new((op, x, y))));
   }
 
-  fn on_inc_dec_local(&mut self, p: PrePost, op: IncDec, symbol: &'a str) {
-    self.push_expr(Expr::IncDecLocal(Box::new((p, op, symbol))));
-  }
-
   fn on_get_field(&mut self, symbol: &'a str) {
     let x = self.pop_expr();
     self.push_expr(Expr::GetField(Box::new((x, symbol))));
@@ -696,6 +673,11 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::SetLocal(symbol, x));
   }
 
+  fn on_set_local_compound(&mut self, symbol: &'a str, op: Op2) {
+    let x = self.pop_expr();
+    self.push_stmt(Stmt::SetLocalCompound(symbol, op, x));
+  }
+
   fn on_set_field(&mut self, symbol: &'a str) {
     let y = self.pop_expr();
     let x = self.pop_expr();
@@ -725,11 +707,6 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn on_error_missing_expected_token(&mut self, token: Token) {
-    let _ = token;
-    // TODO: report error on missing expected token
-  }
-
-  fn on_error_missing_expected_attached_token(&mut self, token: Token) {
     let _ = token;
     // TODO: report error on missing expected token
   }

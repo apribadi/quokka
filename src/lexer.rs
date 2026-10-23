@@ -177,12 +177,12 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b">=" => Token::CmpGe,
         b"<=" => Token::CmpLe,
         b"!=" => Token::CmpNe,
-        b"--" => Token::Dec,
-        b"++" => Token::Inc,
         b"&&" => Token::ShortCircuitAnd,
         b"||" => Token::ShortCircuitOr,
         b"<<" => Token::Shl,
         b">>" => Token::Shr,
+        b"+=" => Token::AddEqual,
+        b"-=" => Token::SubEqual,
         _ => Token::Error,
       },
     A | L =>
@@ -243,7 +243,7 @@ fn test_scan() {
       "foo" Symbol false
       "100" Int false
       "+100" Int false
-      "-=" Error false
+      "-=" SubEqual false
       "only-kebob-case" Symbol false
       "_" Underscore false
       "`" Backtick true

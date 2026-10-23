@@ -6,7 +6,7 @@ fn test_fib_loop() {
   let mut out = String::new();
 
   util::dump(&mut out, "
-    fun _(n) {
+    fun fib(n) {
       let mutable a = 1
       let mutable b = 0
       let mutable n = n
@@ -24,7 +24,9 @@ fn test_fib_loop() {
       [
           Fun(
               Fun {
-                  name: "fib",
+                  name: Some(
+                      "fib",
+                  ),
                   args: [
                       Binding {
                           name: Some(
@@ -33,20 +35,26 @@ fn test_fib_loop() {
                       },
                   ],
                   body: [
-                      LetMutable(
-                          "a",
+                      DefLocal(
+                          Some(
+                              "a",
+                          ),
                           ConstI64(
                               1,
                           ),
                       ),
-                      LetMutable(
-                          "b",
+                      DefLocal(
+                          Some(
+                              "b",
+                          ),
                           ConstI64(
                               0,
                           ),
                       ),
-                      LetMutable(
-                          "n",
+                      DefLocal(
+                          Some(
+                              "n",
+                          ),
                           Variable(
                               "n",
                           ),
@@ -164,7 +172,9 @@ fn test_fib_tailcall() {
       [
           Fun(
               Fun {
-                  name: "aux",
+                  name: Some(
+                      "aux",
+                  ),
                   args: [
                       Binding {
                           name: Some(
@@ -256,7 +266,9 @@ fn test_fib_tailcall() {
           ),
           Fun(
               Fun {
-                  name: "fib",
+                  name: Some(
+                      "fib",
+                  ),
                   args: [
                       Binding {
                           name: Some(

@@ -35,7 +35,6 @@ pub enum Expr<'a> {
   GetIndex(Box<(Expr<'a>, Expr<'a>)>),                       // a[b]
   If(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),                      // if (a) { ... }
   IfElse(Box<(Expr<'a>, Box<[Stmt<'a>]>, Box<[Stmt<'a>]>)>), // if (a) { ... } else { ... }
-  IncDecLocal(Box<(PrePost, IncDec, Symbol<'a>)>),           // ++ x OR x ++
   Op1(Box<(Op1, Expr<'a>)>),                                 // - a
   Op2(Box<(Op2, Expr<'a>, Expr<'a>)>),                       // a + b
   Select(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),               // a ? b : c
@@ -52,20 +51,6 @@ pub enum Expr<'a> {
 #[derive(Debug)]
 pub struct Binding<'a> {
   pub name: Option<Symbol<'a>>,
-}
-
-#[derive(Clone, Copy)]
-#[derive(Debug)]
-pub enum IncDec {
-  Inc, // ++
-  Dec, // --
-}
-
-#[derive(Clone, Copy)]
-#[derive(Debug)]
-pub enum PrePost {
-  Pre,
-  Post,
 }
 
 #[derive(Clone, Copy)]

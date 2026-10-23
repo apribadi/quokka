@@ -41,9 +41,7 @@ pub enum Token {
   CmpGe,             // >=
   CmpLe,             // <=
   CmpNe,             // !=
-  Dec,               // --
   DotDotDot,         // ...
-  Inc,               // ++
   Shl,               // <<
   ShortCircuitAnd,   // &&
   ShortCircuitOr,    // ||

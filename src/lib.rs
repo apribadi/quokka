@@ -5,6 +5,3 @@ pub mod ssa_0;
 pub mod token;
 pub mod lexer;
 pub mod parser;
-// pub mod parse;
-
-// lalrpop_util::lalrpop_mod!(syntax);
