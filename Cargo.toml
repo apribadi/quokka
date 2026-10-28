@@ -34,5 +34,5 @@ unsafe_op_in_unsafe_fn = "deny"
 # unused_lifetimes = "warn"
 # unused_qualifications = "warn"
 # unused_results = "warn"
-unused = "allow"
+# unused = "allow"
 

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::ast::Binding;
+use crate::ast::Bind;
 use crate::ast::Expr;
 use crate::ast::Fun;
 use crate::ast::Item;
@@ -25,7 +25,7 @@ struct Parser<'a, 'b> {
   token_is_attached: bool,
   token_span: &'a [u8],
   items: Vec<Item<'a>>,
-  bindings: Vec<Binding<'a>>,
+  binds: Vec<Bind<'a>>,
   exprs: Vec<Expr<'a>>,
   stmts: Vec<Stmt<'a>>,
 }
@@ -63,7 +63,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       token_is_attached,
       token_span,
       items: Vec::new(),
-      bindings: Vec::new(),
+      binds: Vec::new(),
       exprs: Vec::new(),
       stmts: Vec::new(),
     }
@@ -90,10 +90,6 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.token_is_attached
   }
 
-  fn token_span(&self) -> &'a [u8] {
-    self.token_span
-  }
-
   fn token_str(&self) -> &'a str {
     str::from_utf8(self.token_span).unwrap()
   }
@@ -103,6 +99,17 @@ impl<'a, 'b> Parser<'a, 'b> {
       self.on_error_missing_expected_token(token);
     } else {
       self.next();
+    }
+  }
+
+  fn parse_path_segment(&mut self) -> &'a str {
+    if self.token() == Token::Symbol && self.token_is_attached() {
+      let s = self.token_str();
+      self.next();
+      s
+    } else {
+      self.on_error_missing_expected_token(Token::Symbol); // log expected attachment ??
+      ""
     }
   }
 
@@ -124,17 +131,6 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn parse_path_segment(&mut self) -> &'a str {
-    if self.token() == Token::Symbol && self.token_is_attached() {
-      let s = self.token_str();
-      self.next();
-      s
-    } else {
-      self.on_error_missing_expected_token(Token::Symbol); // log expected attachment ??
-      ""
-    }
-  }
-
   fn parse_item_list(&mut self) {
     loop {
       match self.token() {
@@ -145,7 +141,7 @@ impl<'a, 'b> Parser<'a, 'b> {
           self.next();
           let name = self.parse_name();
           self.expect(Token::LParen);
-          let m = self.parse_binding_list(Token::RParen);
+          let m = self.parse_bind_list(Token::RParen);
           self.expect(Token::RParen);
           let n = self.parse_block();
           self.on_fun(name, m, n);
@@ -158,18 +154,18 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn parse_binding_list(&mut self, stop: Token) -> usize {
-    let mut n_bindings = 0;
+  fn parse_bind_list(&mut self, stop: Token) -> usize {
+    let mut n_binds = 0;
     if self.token() != stop {
       loop {
         let name = self.parse_name();
-        self.on_binding(name);
-        n_bindings += 1;
+        self.on_bind(name);
+        n_binds += 1;
         if self.token() != Token::Comma { break; }
         self.next();
       }
     }
-    return n_bindings;
+    return n_binds;
   }
 
   fn parse_expr(&mut self) {
@@ -190,7 +186,8 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn parse_expr_prec(&mut self, p: Priority) {
-    let _: bool = self.parse_prec(p, false);
+    let is_stmt: bool = self.parse_prec(p, false);
+    assert!(! is_stmt);
   }
 
   // returns `true` if we parsed a statement
@@ -277,6 +274,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     loop {
       match self.token() {
         Token::Query if p <= Priority::Select => {
+          // TODO: use different tokens
           self.next();
           self.parse_expr();
           self.expect(Token::Colon);
@@ -447,12 +445,12 @@ impl<'a, 'b> Parser<'a, 'b> {
             self.on_let_mutable(name);
             n_stmts += 1;
           } else {
-            // NB: we allow a list of zero bindings, like
+            // NB: we allow a list of zero binds, like
             //
             //   let = f(x)
             //
             // which is a bit weird. but works semantically
-            let n_bindings = self.parse_binding_list(Token::Equal);
+            let n_binds = self.parse_bind_list(Token::Equal);
             self.expect(Token::Equal);
             let mut n_exprs = 0;
             loop {
@@ -461,7 +459,7 @@ impl<'a, 'b> Parser<'a, 'b> {
               if self.token() != Token::Comma { break; }
               self.next();
             }
-            self.on_let(n_bindings, n_exprs);
+            self.on_let(n_binds, n_exprs);
             n_stmts += 1;
           }
         }
@@ -481,7 +479,7 @@ impl<'a, 'b> Parser<'a, 'b> {
           n_stmts += 1;
         }
         _ => {
-          let pos = self.token_index();
+          let stmt_start = self.token_index();
 
           if ! self.parse_prec(Priority::Any, true) {
             let mut n_exprs = 1;
@@ -495,7 +493,7 @@ impl<'a, 'b> Parser<'a, 'b> {
 
           n_stmts += 1;
 
-          if self.token_index() == pos {
+          if self.token_index() == stmt_start {
             // NB: If we couldn't parse anything at all, then we immediately
             // close the block so that we don't get stuck in an infinite loop.
             //
@@ -520,12 +518,12 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.items.push(x);
   }
 
-  fn push_binding(&mut self, x: Binding<'a>) {
-    self.bindings.push(x);
+  fn push_bind(&mut self, x: Bind<'a>) {
+    self.binds.push(x);
   }
 
-  fn pop_binding_list(&mut self, n: usize) -> Box<[Binding<'a>]> {
-    self.bindings.pop_list(n).collect()
+  fn pop_bind_list(&mut self, n: usize) -> Box<[Bind<'a>]> {
+    self.binds.pop_list(n).collect()
   }
 
   fn push_expr(&mut self, x: Expr<'a>) {
@@ -550,12 +548,12 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   fn on_fun(&mut self, name: Option<&'a str>, n_args: usize, n_stmts: usize) {
     let z = self.pop_stmt_list(n_stmts);
-    let y = self.pop_binding_list(n_args);
+    let y = self.pop_bind_list(n_args);
     self.push_item(Item::Fun(Box::new(Fun { name, args: y, body: z })));
   }
 
-  fn on_binding(&mut self, name: Option<&'a str>) {
-    self.push_binding(Binding { name });
+  fn on_bind(&mut self, name: Option<&'a str>) {
+    self.push_bind(Bind { name });
   }
 
   fn on_variable(&mut self, symbol: &'a str) {
@@ -563,7 +561,7 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn on_literal_bool(&mut self, value: bool) {
-    self.push_expr(Expr::ConstBool(value));
+    self.push_expr(Expr::LiteralBool(value));
   }
 
   fn on_literal_int(&mut self, x: &'a str) {
@@ -575,7 +573,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Ok(n) => n
       };
-    self.push_expr(Expr::ConstI64(n));
+    self.push_expr(Expr::LiteralI64(n));
   }
 
   fn on_select(&mut self) {
@@ -657,9 +655,9 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::Continue);
   }
 
-  fn on_let(&mut self, n_bindings: usize, n_exprs: usize) {
+  fn on_let(&mut self, n_binds: usize, n_exprs: usize) {
     let y = self.pop_expr_list(n_exprs);
-    let x = self.pop_binding_list(n_bindings);
+    let x = self.pop_bind_list(n_binds);
     self.push_stmt(Stmt::Let(x, y));
   }
 

@@ -1,6 +1,5 @@
 //! lexical analysis of a byte-string to produce a stream of tokens
 
-use crate::prelude::*;
 use crate::token::Token;
 
 pub fn scan(source: &[u8]) -> Box<[(Token, bool, &'_ [u8])]> {
@@ -177,8 +176,6 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b">=" => Token::CmpGe,
         b"<=" => Token::CmpLe,
         b"!=" => Token::CmpNe,
-        b"&&" => Token::ShortCircuitAnd,
-        b"||" => Token::ShortCircuitOr,
         b"<<" => Token::Shl,
         b">>" => Token::Shr,
         b"+=" => Token::AddEqual,
@@ -187,6 +184,7 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
       },
     A | L =>
       match span {
+        b"and" => Token::ShortCircuitAnd,
         b"break" => Token::Break,
         b"continue" => Token::Continue,
         b"do" => Token::Do,
@@ -199,6 +197,7 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b"let" => Token::Let,
         b"loop" => Token::Loop,
         b"mutable" => Token::Mutable,
+        b"or" => Token::ShortCircuitOr,
         b"return" => Token::Return,
         b"true" => Token::True,
         b"while" => Token::While,

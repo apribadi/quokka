@@ -8,14 +8,14 @@ pub enum Item<'a> {
 #[derive(Debug)]
 pub struct Fun<'a> {
   pub name: Option<Symbol<'a>>,
-  pub args: Box<[Binding<'a>]>,
+  pub args: Box<[Bind<'a>]>,
   pub body: Box<[Stmt<'a>]>,
 }
 
 #[derive(Debug)]
 pub enum Stmt<'a> {
   ExprList(Box<[Expr<'a>]>),                   // a, b
-  Let(Box<[Binding<'a>]>, Box<[Expr<'a>]>),    // let x, y = a, b
+  Let(Box<[Bind<'a>]>, Box<[Expr<'a>]>),    // let x, y = a, b
   DefLocal(Option<Symbol<'a>>, Expr<'a>),      // let mutable x = a
   SetLocal(Symbol<'a>, Expr<'a>),              // x = 1
   SetField(Expr<'a>, Symbol<'a>, Expr<'a>),    // a.foo = 1
@@ -29,8 +29,8 @@ pub enum Stmt<'a> {
 
 #[derive(Debug)]
 pub enum Expr<'a> {
-  ConstBool(bool),                                           // true OR false
-  ConstI64(i64),                                             // 3
+  LiteralBool(bool),                                         // true OR false
+  LiteralI64(i64),                                           // 3
   GetField(Box<(Expr<'a>, Symbol<'a>)>),                     // a.foo
   GetIndex(Box<(Expr<'a>, Expr<'a>)>),                       // a[b]
   If(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),                      // if (a) { ... }
@@ -49,7 +49,7 @@ pub enum Expr<'a> {
 // TODO: add optional type ascription
 
 #[derive(Debug)]
-pub struct Binding<'a> {
+pub struct Bind<'a> {
   pub name: Option<Symbol<'a>>,
 }
 

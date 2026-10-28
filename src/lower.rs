@@ -7,10 +7,12 @@ use crate::ast;
 use crate::ssa_0 as ssa;
 
 type Symbol = usize;
+type Value = usize;
+type Local = usize;
 
 // TODO: consider special lowering for arguments to cond
 
-pub fn compile(item_list: &[ast::Item]) -> ssa::Module {
+pub fn compile<'a>(item_list: &[ast::Item<'a>]) -> ssa::Module {
   let mut ctx = Ctx::new();
   let mut out = Out::new();
 
@@ -41,7 +43,7 @@ pub fn compile(item_list: &[ast::Item]) -> ssa::Module {
 
 enum What {
   Points(Box<[Point]>),
-  Values(Box<[usize]>),
+  Values(Box<[Value]>),
 }
 
 // patch point
@@ -51,8 +53,8 @@ struct Point {
 }
 
 enum Referent {
-  Local(usize),
-  Value(usize),
+  Local(Local),
+  Value(Value),
 }
 
 enum LoopInfo {
@@ -70,8 +72,8 @@ struct Label {
 struct Ctx {
   scope: Scope,
   loops: LoopStack,
-  // values: Buf<u32>,
-  // points: Buf<Point>,
+  values: Vec<usize>,
+  points: Vec<Point>,
 }
 
 impl Ctx {
@@ -79,8 +81,8 @@ impl Ctx {
     Self {
       scope: Scope::new(),
       loops: LoopStack::new(),
-      // values: Buf::new(),
-      // points: Buf::new(),
+      values: Vec::new(),
+      points: Vec::new(),
     }
   }
 }
@@ -143,7 +145,7 @@ fn push_loop(a: Label, t: &mut LoopStack) {
   t.info.push(LoopInfo::NonTail { label: a, n_breaks: 0 });
 }
 
-fn pop_loop(t: &mut LoopStack, points: &mut Buf<Point>) -> u32 {
+fn pop_loop(t: &mut LoopStack, points: &mut Vec<Point>) -> u32 {
   let LoopInfo::NonTail { n_breaks, .. } = t.info.pop_one() else { unreachable!() };
   for p in t.breaks.pop_seq(n_breaks) {
     points.push(p);

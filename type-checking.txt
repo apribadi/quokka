@@ -1,0 +1,20 @@
+# modularity
+
+modules have signatures and implementations
+
+type checking a module should rely only on other modules' signatures, not their
+implementations
+
+exceptions:
+- checking for infinite sized types
+- checking for polymorphi recursion
+
+# let should not be generalized
+
+only generalize top-level items
+
+- could be revisited later
+
+# implicit generalization
+
+of top-level items

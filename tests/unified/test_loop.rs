@@ -25,7 +25,7 @@ fn test_fib_loop() {
                       "foo",
                   ),
                   args: [
-                      Binding {
+                      Bind {
                           name: Some(
                               "n",
                           ),
@@ -36,7 +36,7 @@ fn test_fib_loop() {
                           Some(
                               "x",
                           ),
-                          ConstI64(
+                          LiteralI64(
                               0,
                           ),
                       ),
@@ -44,7 +44,7 @@ fn test_fib_loop() {
                           Some(
                               "i",
                           ),
-                          ConstI64(
+                          LiteralI64(
                               0,
                           ),
                       ),
@@ -95,7 +95,7 @@ fn test_fib_loop() {
                                       SetLocalCompound(
                                           "i",
                                           Add,
-                                          ConstI64(
+                                          LiteralI64(
                                               1,
                                           ),
                                       ),
@@ -136,17 +136,17 @@ fn test_fib_tailcall() {
                       "aux",
                   ),
                   args: [
-                      Binding {
+                      Bind {
                           name: Some(
                               "a",
                           ),
                       },
-                      Binding {
+                      Bind {
                           name: Some(
                               "b",
                           ),
                       },
-                      Binding {
+                      Bind {
                           name: Some(
                               "n",
                           ),
@@ -163,7 +163,7 @@ fn test_fib_tailcall() {
                                               Variable(
                                                   "n",
                                               ),
-                                              ConstI64(
+                                              LiteralI64(
                                                   0,
                                               ),
                                           ),
@@ -206,7 +206,7 @@ fn test_fib_tailcall() {
                                                                       Variable(
                                                                           "n",
                                                                       ),
-                                                                      ConstI64(
+                                                                      LiteralI64(
                                                                           1,
                                                                       ),
                                                                   ),
@@ -230,7 +230,7 @@ fn test_fib_tailcall() {
                       "fib",
                   ),
                   args: [
-                      Binding {
+                      Bind {
                           name: Some(
                               "n",
                           ),
@@ -245,10 +245,10 @@ fn test_fib_tailcall() {
                                           "aux",
                                       ),
                                       [
-                                          ConstI64(
+                                          LiteralI64(
                                               1,
                                           ),
-                                          ConstI64(
+                                          LiteralI64(
                                               0,
                                           ),
                                           Variable(

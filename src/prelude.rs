@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 pub(crate) use hashbrown::hash_map::HashMap;
 pub(crate) use std::fmt::Write;
 
