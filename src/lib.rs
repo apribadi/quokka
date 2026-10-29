@@ -1,10 +1,11 @@
 pub mod ast;
 pub mod lexer;
-pub mod lower;
 pub mod parser;
 pub mod prelude;
 pub mod ssa_0;
 pub mod token;
+pub mod compile_0;
+// pub mod lower;
 
 // syntax ideas - use something in { :, @, ` } to denote symbol/label ?
 //

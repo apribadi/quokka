@@ -3,7 +3,6 @@
 type Symbol = usize;
 
 type Arity = usize;
-type Error = usize;
 type Field = usize;
 type Index = usize;
 type Label = usize;
@@ -40,7 +39,7 @@ pub enum Inst {
   Op2(Op2, Value, Value),
   Call(Value),
   Cond(Value),
-  Goto(Label),
+  Jump(Label),
   Ret,
   Fail,
 }

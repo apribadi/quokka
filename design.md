@@ -136,3 +136,7 @@ case e(lambda (x) { ... }) {
 }
 
 ```
+
+# misc
+
+- Zahn's construct
