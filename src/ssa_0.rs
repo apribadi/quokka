@@ -19,7 +19,7 @@ pub struct FunDef {
   pub len: usize,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[derive(Debug)]
 pub enum Inst {
   Label(Arity, Arity),
@@ -45,7 +45,7 @@ pub enum Inst {
   Fail,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[derive(Debug)]
 pub enum Op1 {
   Neg,
@@ -59,7 +59,7 @@ pub enum Op1 {
 // - x >= y => y <= x
 // - x > y => y < x
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 #[derive(Debug)]
 pub enum Op2 {
   Add,
