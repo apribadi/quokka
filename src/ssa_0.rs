@@ -20,6 +20,7 @@ pub struct FunDef {
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum Inst {
   Label(Arity, Arity),
   GetArg(Index),
@@ -45,6 +46,7 @@ pub enum Inst {
 }
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum Op1 {
   Dec,
   Inc,
@@ -60,6 +62,7 @@ pub enum Op1 {
 // - x > y => y < x
 
 #[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum Op2 {
   Add,
   BitAnd,
