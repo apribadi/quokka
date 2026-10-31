@@ -8,12 +8,10 @@ version = "0.1.0"
 [features]
 
 [build-dependencies]
-# lalrpop = "0.23.1"
 
 [dependencies]
 hashbrown = "0.17.1"
-# lalrpop-util = "0.23.1"
-# logos = "0.16.1"
+foldhash = "0.2.0"
 
 [dev-dependencies]
 expect-test = "1.5.1"
