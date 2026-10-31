@@ -23,7 +23,7 @@ pub struct FunDef {
 #[derive(Debug)]
 pub enum Inst {
   Label(Arity, Arity),
-  Arg(Index),
+  Pop(Index),
   Put(Index, Value),
   Const(Symbol),
   ConstBool(bool),
@@ -110,7 +110,7 @@ impl std::fmt::Display for Inst {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::Label(n, _) => write!(f, "LABEL {}", n),
-      Self::Arg(i) => write!(f, "= ARG {}", i),
+      Self::Pop(i) => write!(f, "= POP {}", i),
       Self::Put(i, x) => write!(f, "PUT {} %{}", i, x),
       Self::Const(s) => write!(f, "= CONST {}", s),
       Self::ConstBool(p) => write!(f, "= {}", p),

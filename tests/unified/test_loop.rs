@@ -44,8 +44,8 @@ fn test_loop() {
       %22 PUT 1 %20
       %23 ==> GOTO %24
       %24 LABEL 2
-      %25 = ARG 0
-      %26 = ARG 1
+      %25 = POP 0
+      %26 = POP 1
       %27 = %25 + %26
       %28 PUT 0 %27
       %29 RET

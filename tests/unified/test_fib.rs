@@ -25,7 +25,7 @@ fn test_fib_loop() {
   expect![[r#"
       === fun fib ===
       %0 LABEL 1
-      %1 = ARG 0
+      %1 = POP 0
       %2 = 1
       %3 = DEF-LOCAL %2
       %4 = 0
@@ -80,7 +80,7 @@ fn test_fib_while() {
   expect![[r#"
       === fun fib ===
       %0 LABEL 1
-      %1 = ARG 0
+      %1 = POP 0
       %2 = 1
       %3 = DEF-LOCAL %2
       %4 = 0
@@ -135,9 +135,9 @@ fn test_fib_tailcall() {
   expect![[r#"
       === fun aux ===
       %0 LABEL 3
-      %1 = ARG 0
-      %2 = ARG 1
-      %3 = ARG 2
+      %1 = POP 0
+      %2 = POP 1
+      %3 = POP 2
       %4 = 0
       %5 = %3 == %4
       %6 COND %5
@@ -157,7 +157,7 @@ fn test_fib_tailcall() {
       %20 RET
       === fun fib ===
       %21 LABEL 1
-      %22 = ARG 0
+      %22 = POP 0
       %23 = 1
       %24 = 0
       %25 = CONST aux

@@ -23,7 +23,7 @@ pub fn compile<'a>(item_list: &[ast::Item<'a>]) -> ssa::Module {
     ctx.scope.enter();
     let _ = ctx.out.emit_label(f.args.len());
     for (i, s) in f.args.iter().enumerate() {
-      let x = ctx.out.emit(Inst::Arg(i));
+      let x = ctx.out.emit(Inst::Pop(i));
       if let Some(s) = s.name {
         ctx.scope.bind(s, Referent::Value(x))
       }
@@ -128,7 +128,7 @@ impl What {
       What::NumPoints(num_points) => {
         let a = ctx.out.emit_label(1);
         ctx.patch_list(num_points, a);
-        ctx.out.emit(Inst::Arg(0))
+        ctx.out.emit(Inst::Pop(0))
       }
       What::NumValues(1) => {
         ctx.stack.value.pop().unwrap()
@@ -138,7 +138,7 @@ impl What {
         let _ = ctx.stack.value.pop_list(num_values);
         let _ = ctx.out.emit(Inst::Fail);
         let _ = ctx.out.emit_label(1);
-        ctx.out.emit(Inst::Arg(0))
+        ctx.out.emit(Inst::Pop(0))
       }
     }
   }
@@ -148,7 +148,7 @@ impl What {
       What::NumPoints(num_points) => {
         let a = ctx.out.emit_label(arity);
         ctx.patch_list(num_points, a);
-        ctx.emit_arg_list(arity);
+        ctx.emit_pops(arity);
       }
       What::NumValues(num_values) if arity == num_values => {
       }
@@ -157,7 +157,7 @@ impl What {
         let _ = ctx.stack.value.pop_list(num_values);
         let _ = ctx.out.emit(Inst::Fail);
         let _ = ctx.out.emit_label(arity);
-        ctx.emit_arg_list(arity);
+        ctx.emit_pops(arity);
       }
     }
   }
@@ -168,7 +168,7 @@ impl What {
         num_points
       }
       What::NumValues(num_values) => {
-        ctx.emit_put_list(num_values);
+        ctx.emit_puts(num_values);
         ctx.stack.point.push(ctx.out.emit_point(num_values));
         1
       }
@@ -354,13 +354,13 @@ impl<'a> Ctx<'a> {
     }
   }
 
-  fn emit_arg_list(&mut self, n: usize) {
+  fn emit_pops(&mut self, n: usize) {
     for i in 0 .. n {
-      self.stack.value.push(self.out.emit(Inst::Arg(i)));
+      self.stack.value.push(self.out.emit(Inst::Pop(i)));
     }
   }
 
-  fn emit_put_list(&mut self, n: usize) {
+  fn emit_puts(&mut self, n: usize) {
     for (i, x) in self.stack.value.pop_list(n).enumerate() {
       let _ = self.out.emit(Inst::Put(i, x));
     }
@@ -370,13 +370,11 @@ impl<'a> Ctx<'a> {
     match *expr {
       Expr::Call(ref e) => {
         let (ref f, ref args) = **e;
-        let n = args.len();
         for x in args.iter() {
-          let x = self.compile_expr(x).into_value(self);
-          self.stack.value.push(x);
+          self.compile_expr(x).into_value_list(1, self);
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
-        self.emit_put_list(n);
+        self.emit_puts(args.len());
         let _ = self.out.emit(Inst::Call(f));
         let p = self.out.emit(Inst::Goto(usize::MAX));
         self.stack.point.push(Point { index: p, arity: None });
@@ -515,13 +513,11 @@ impl<'a> Ctx<'a> {
     match *expr {
       Expr::Call(ref e) => {
         let (ref f, ref args) = **e;
-        let n = args.len();
         for x in args.iter() {
-          let x = self.compile_expr(x).into_value(self);
-          self.stack.value.push(x);
+          self.compile_expr(x).into_value_list(1, self);
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
-        self.emit_put_list(n);
+        self.emit_puts(args.len());
         let _ = self.out.emit(Inst::TailCall(f));
       }
       Expr::Fail => {
@@ -650,11 +646,10 @@ impl<'a> Ctx<'a> {
         What::NumPoints(0)
       }
       Stmt::Let(ref ss, ref xs) => {
-        let n = ss.len();
-        self.compile_expr_list(xs).into_value_list(n, self);
+        self.compile_expr_list(xs).into_value_list(ss.len(), self);
         // NB: we bind from left to right, so later bindings shadow earlier
         // ones.
-        for (s, x) in ss.iter().zip(self.stack.value.pop_list(n)) {
+        for (s, x) in ss.iter().zip(self.stack.value.pop_list(ss.len())) {
           if let Some(s) = s.name {
             self.scope.bind(s, Referent::Value(x));
           }
@@ -716,10 +711,9 @@ impl<'a> Ctx<'a> {
         let a = self.out.emit_label_after(p, 0);
         let x = self.compile_expr(x).into_value(self);
         let _ = self.out.emit(Inst::Cond(x));
+        self.stack.point.push(self.out.emit_point(0));
         let q = self.out.emit_point(0);
-        let r = self.out.emit_point(0);
-        self.stack.point.push(q);
-        let _ = self.out.emit_label_after(r, 0);
+        let _ = self.out.emit_label_after(q, 0);
         self.loops.enter(a);
         self.scope.enter();
         self.compile_block(ys).patch(a, self);
@@ -757,40 +751,36 @@ impl<'a> Ctx<'a> {
         let What::NumPoints(0) = self.compile_stmt(stmt) else { unreachable!() };
       }
       Stmt::Let(..)
+      | Stmt::DefLocal(..)
       | Stmt::SetLocal(..)
       | Stmt::SetLocalCompound(..)
       | Stmt::SetField(..)
-      | Stmt::SetIndex(..)
-      | Stmt::DefLocal(..) => {
+      | Stmt::SetIndex(..) => {
         let What::NumValues(0) = self.compile_stmt(stmt) else { unreachable!() };
         let _ = self.out.emit(Inst::Ret);
       }
     }
   }
 
-  fn compile_expr_list(&mut self, expr_list: &[Expr<'a>]) -> What {
-    if let [ref x] = *expr_list {
+  fn compile_expr_list(&mut self, xs: &[Expr<'a>]) -> What {
+    if let [ref x] = *xs {
       self.compile_expr(x)
     } else {
-      let n = expr_list.len();
-      for x in expr_list.iter() {
-        let x = self.compile_expr(x).into_value(self);
-        self.stack.value.push(x);
+      for x in xs.iter() {
+        self.compile_expr(x).into_value_list(1, self);
       }
-      What::NumValues(n)
+      What::NumValues(xs.len())
     }
   }
 
-  fn compile_expr_list_tail(&mut self, expr_list: &[Expr<'a>]) {
-    if let [ref x] = *expr_list {
+  fn compile_expr_list_tail(&mut self, xs: &[Expr<'a>]) {
+    if let [ref x] = *xs {
       self.compile_expr_tail(x);
     } else {
-      let n = expr_list.len();
-      for x in expr_list.iter() {
-        let x = self.compile_expr(x).into_value(self);
-        self.stack.value.push(x);
+      for x in xs.iter() {
+        self.compile_expr(x).into_value_list(1, self);
       }
-      self.emit_put_list(n);
+      self.emit_puts(xs.len());
       let _ = self.out.emit(Inst::Ret);
     }
   }
