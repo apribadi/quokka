@@ -1,6 +1,6 @@
 //! untyped linear intermediate represenation
 
-type Symbol = usize;
+use crate::symbol::Symbol;
 
 type Arity = usize;
 type Field = usize;
@@ -24,7 +24,7 @@ pub struct FunDef {
 pub enum Inst {
   Label(Arity, Arity),
   GetArg(Index),
-  SetOut(Index),
+  SetOut(Index, Value),
   Const(Symbol),
   ConstBool(bool),
   ConstI64(i64),

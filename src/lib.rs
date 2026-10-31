@@ -5,6 +5,7 @@ pub mod prelude;
 pub mod ssa_0;
 pub mod token;
 pub mod compile_0;
+pub mod symbol;
 // pub mod lower;
 
 // syntax ideas - use something in { :, @, ` } to denote symbol/label ?
