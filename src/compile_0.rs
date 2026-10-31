@@ -148,7 +148,7 @@ impl What {
       What::NumPoints(num_points) => {
         let a = ctx.out.emit_label(arity);
         ctx.patch_list(num_points, a);
-        ctx.emit_args(arity);
+        ctx.emit_arg_list(arity);
       }
       What::NumValues(num_values) if arity == num_values => {
       }
@@ -157,7 +157,7 @@ impl What {
         let _ = ctx.stack.value.pop_list(num_values);
         let _ = ctx.out.emit(Inst::Fail);
         let _ = ctx.out.emit_label(arity);
-        ctx.emit_args(arity);
+        ctx.emit_arg_list(arity);
       }
     }
   }
@@ -168,7 +168,7 @@ impl What {
         num_points
       }
       What::NumValues(num_values) => {
-        ctx.emit_puts(num_values);
+        ctx.emit_put_list(num_values);
         ctx.stack.point.push(ctx.out.emit_point(num_values));
         1
       }
@@ -273,6 +273,48 @@ impl Out {
     self.patch(p, a);
     a
   }
+
+  fn emit_op1(&mut self, op: ast::Op1, x: Value) -> Value {
+    let op =
+      match op {
+        ast::Op1::Neg => ssa::Op1::Neg,
+        ast::Op1::Not => ssa::Op1::Not,
+      };
+    self.emit(Inst::Op1(op, x))
+  }
+
+  fn emit_op2(&mut self, op: ast::Op2, x: Value, y: Value) -> Value {
+    let op =
+      match op {
+        ast::Op2::Add => ssa::Op2::Add,
+        ast::Op2::BitAnd => ssa::Op2::BitAnd,
+        ast::Op2::BitOr => ssa::Op2::BitOr,
+        ast::Op2::BitXor => ssa::Op2::BitXor,
+        ast::Op2::CmpEq => ssa::Op2::CmpEq,
+        ast::Op2::CmpLe => ssa::Op2::CmpLe,
+        ast::Op2::CmpLt => ssa::Op2::CmpLt,
+        ast::Op2::Div => ssa::Op2::Div,
+        ast::Op2::Mul => ssa::Op2::Mul,
+        ast::Op2::Rem => ssa::Op2::Rem,
+        ast::Op2::Shl => ssa::Op2::Shl,
+        ast::Op2::Shr => ssa::Op2::Shr,
+        ast::Op2::Sub => ssa::Op2::Sub,
+        ast::Op2::CmpNe => {
+          let z = self.emit(Inst::Op2(ssa::Op2::CmpEq, x, y));
+          let z = self.emit(Inst::Op1(ssa::Op1::Not, z));
+          return z;
+        }
+        ast::Op2::CmpGe => {
+          let z = self.emit(Inst::Op2(ssa::Op2::CmpLe, y, x));
+          return z;
+        }
+        ast::Op2::CmpGt => {
+          let z = self.emit(Inst::Op2(ssa::Op2::CmpLt, y, x));
+          return z;
+        }
+      };
+    self.emit(Inst::Op2(op, x, y))
+  }
 }
 
 impl<'a> Ctx<'a> {
@@ -312,13 +354,13 @@ impl<'a> Ctx<'a> {
     }
   }
 
-  fn emit_args(&mut self, n: usize) {
+  fn emit_arg_list(&mut self, n: usize) {
     for i in 0 .. n {
       self.stack.value.push(self.out.emit(Inst::Arg(i)));
     }
   }
 
-  fn emit_puts(&mut self, n: usize) {
+  fn emit_put_list(&mut self, n: usize) {
     for (i, x) in self.stack.value.pop_list(n).enumerate() {
       let _ = self.out.emit(Inst::Put(i, x));
     }
@@ -334,7 +376,7 @@ impl<'a> Ctx<'a> {
           self.stack.value.push(x);
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
-        self.emit_puts(n);
+        self.emit_put_list(n);
         let _ = self.out.emit(Inst::Call(f));
         let p = self.out.emit(Inst::Goto(usize::MAX));
         self.stack.point.push(Point { index: p, arity: None });
@@ -348,9 +390,8 @@ impl<'a> Ctx<'a> {
         let (ref x, ref ys) = **e;
         let x = self.compile_expr(x).into_value(self);
         let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
+        self.stack.point.push(self.out.emit_point(0));
         let q = self.out.emit_point(0);
-        self.stack.point.push(p);
         let _ = self.out.emit_label_after(q, 0);
         let n = self.compile_block(ys).into_point_list(self);
         What::NumPoints(1 + n)
@@ -402,13 +443,15 @@ impl<'a> Ctx<'a> {
       Expr::Op1(ref e) => {
         let (op, ref x) = **e;
         let x = self.compile_expr(x).into_value(self);
-        self.compile_op1(op, x)
+        self.stack.value.push(self.out.emit_op1(op, x));
+        What::NumValues(1)
       }
       Expr::Op2(ref e) => {
         let (op, ref x, ref y) = **e;
         let x = self.compile_expr(x).into_value(self);
         let y = self.compile_expr(y).into_value(self);
-        self.compile_op2(op, x, y)
+        self.stack.value.push(self.out.emit_op2(op, x, y));
+        What::NumValues(1)
       }
       Expr::Select(ref e) => {
         let (ref x, ref y, ref z) = **e;
@@ -431,8 +474,7 @@ impl<'a> Ctx<'a> {
         let _ = self.out.emit_label_after(p, 0);
         let z = self.out.emit(Inst::ConstBool(false));
         let _ = self.out.emit(Inst::Put(0, z));
-        let r = self.out.emit_point(1);
-        self.stack.point.push(r);
+        self.stack.point.push(self.out.emit_point(1));
         let _ = self.out.emit_label_after(q, 0);
         let n = self.compile_expr(y).into_point_list(self);
         What::NumPoints(1 + n)
@@ -448,8 +490,7 @@ impl<'a> Ctx<'a> {
         let _ = self.out.emit_label_after(q, 0);
         let z = self.out.emit(Inst::ConstBool(true));
         let _ = self.out.emit(Inst::Put(0, z));
-        let r = self.out.emit_point(1);
-        self.stack.point.push(r);
+        self.stack.point.push(self.out.emit_point(1));
         What::NumPoints(n + 1)
       }
       Expr::Variable(s) => {
@@ -480,7 +521,7 @@ impl<'a> Ctx<'a> {
           self.stack.value.push(x);
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
-        self.emit_puts(n);
+        self.emit_put_list(n);
         let _ = self.out.emit(Inst::TailCall(f));
       }
       Expr::Fail => {
@@ -603,7 +644,6 @@ impl<'a> Ctx<'a> {
             let _ = self.out.emit(Inst::Fail);
           }
           LoopKind::NonTail { head, .. } | LoopKind::Tail { head } => {
-            // NB: currently, all loop headers have arity zero
             let _ = self.out.emit(Inst::Goto(head.index));
           }
         }
@@ -611,9 +651,9 @@ impl<'a> Ctx<'a> {
       }
       Stmt::Let(ref ss, ref xs) => {
         let n = ss.len();
-        // NB: we do the bindings from left to right, so later bindings shadow
-        // earlier ones.
         self.compile_expr_list(xs).into_value_list(n, self);
+        // NB: we bind from left to right, so later bindings shadow earlier
+        // ones.
         for (s, x) in ss.iter().zip(self.stack.value.pop_list(n)) {
           if let Some(s) = s.name {
             self.scope.bind(s, Referent::Value(x));
@@ -640,7 +680,7 @@ impl<'a> Ctx<'a> {
         let x = self.compile_expr(x).into_value(self);
         if let Some(&Referent::Local(v)) = self.scope.lookup(s) {
           let y = self.out.emit(Inst::GetLocal(v));
-          let z = self.compile_op2(op, y, x).into_value(self);
+          let z = self.out.emit_op2(op, y, x);
           let _ = self.out.emit(Inst::SetLocal(v, z));
           What::NumValues(0)
         } else {
@@ -750,7 +790,7 @@ impl<'a> Ctx<'a> {
         let x = self.compile_expr(x).into_value(self);
         self.stack.value.push(x);
       }
-      self.emit_puts(n);
+      self.emit_put_list(n);
       let _ = self.out.emit(Inst::Ret);
     }
   }
@@ -786,52 +826,5 @@ impl<'a> Ctx<'a> {
         self.scope.leave();
       }
     }
-  }
-
-  fn compile_op1(&mut self, op: ast::Op1, x: Value) -> What {
-    let op =
-      match op {
-        ast::Op1::Neg => ssa::Op1::Neg,
-        ast::Op1::Not => ssa::Op1::Not,
-      };
-    self.stack.value.push(self.out.emit(Inst::Op1(op, x)));
-    What::NumValues(1)
-  }
-
-  fn compile_op2(&mut self, op: ast::Op2, x: Value, y: Value) -> What {
-    let z = 'value: {
-      let op =
-        match op {
-          ast::Op2::Add => ssa::Op2::Add,
-          ast::Op2::BitAnd => ssa::Op2::BitAnd,
-          ast::Op2::BitOr => ssa::Op2::BitOr,
-          ast::Op2::BitXor => ssa::Op2::BitXor,
-          ast::Op2::CmpEq => ssa::Op2::CmpEq,
-          ast::Op2::CmpLe => ssa::Op2::CmpLe,
-          ast::Op2::CmpLt => ssa::Op2::CmpLt,
-          ast::Op2::Div => ssa::Op2::Div,
-          ast::Op2::Mul => ssa::Op2::Mul,
-          ast::Op2::Rem => ssa::Op2::Rem,
-          ast::Op2::Shl => ssa::Op2::Shl,
-          ast::Op2::Shr => ssa::Op2::Shr,
-          ast::Op2::Sub => ssa::Op2::Sub,
-          ast::Op2::CmpNe => {
-            let z = self.out.emit(Inst::Op2(ssa::Op2::CmpEq, x, y));
-            let z = self.out.emit(Inst::Op1(ssa::Op1::Not, z));
-            break 'value z;
-          }
-          ast::Op2::CmpGe => {
-            let z = self.out.emit(Inst::Op2(ssa::Op2::CmpLe, y, x));
-            break 'value z;
-          }
-          ast::Op2::CmpGt => {
-            let z = self.out.emit(Inst::Op2(ssa::Op2::CmpLt, y, x));
-            break 'value z;
-          }
-        };
-      self.out.emit(Inst::Op2(op, x, y))
-    };
-    self.stack.value.push(z);
-    What::NumValues(1)
   }
 }
