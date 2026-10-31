@@ -23,6 +23,7 @@ fn test_fib_loop() {
   ");
 
   expect![[r#"
+      === fun fib ===
       %0 LABEL 1
       %1 = ARG 0
       %2 = 1
@@ -77,6 +78,7 @@ fn test_fib_while() {
   ");
 
   expect![[r#"
+      === fun fib ===
       %0 LABEL 1
       %1 = ARG 0
       %2 = 1
@@ -131,6 +133,7 @@ fn test_fib_tailcall() {
   ");
 
   expect![[r#"
+      === fun aux ===
       %0 LABEL 3
       %1 = ARG 0
       %2 = ARG 1
@@ -152,6 +155,7 @@ fn test_fib_tailcall() {
       %18 LABEL 0
       %19 PUT 0 %2
       %20 RET
+      === fun fib ===
       %21 LABEL 1
       %22 = ARG 0
       %23 = 1

@@ -128,8 +128,8 @@ static TRANSITION_: [[u8; NUM_STATES]; NUM_BYTE_KINDS] = [
   [7, 7, 7, 3, 7, 7, 7, J, N, J, L, N, N, F, F, F, 7, 7, 7, J, N, L, M, N], // hyphen
   [9, 9, 9, 3, 9, 9, 9, J, N, J, M, N, N, F, F, F, 9, 9, 9, J, N, M, M, N], // operator
   [A, A, A, 3, A, A, A, M, N, M, L, N, N, F, F, F, A, A, A, M, N, L, M, N], // letter
-  [B, B, B, 3, B, B, B, 8, N, M, M, N, K, F, F, F, B, B, B, M, K, M, M, N], // zero
-  [C, C, C, 3, C, C, C, K, N, M, M, N, K, F, F, F, C, C, C, M, K, M, M, N], // digit
+  [B, B, B, 3, B, B, B, 8, N, M, L, N, K, F, F, F, B, B, B, M, K, L, M, N], // zero
+  [C, C, C, 3, C, C, C, K, N, M, L, N, K, F, F, F, C, C, C, M, K, L, M, N], // digit
   [D, D, D, 3, D, D, D, D, D, D, D, D, D, G, F, G, D, D, D, D, D, D, D, D], // quote
   [1, 2, 2, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, E, F, E, 1, 1, 1, 1, 1, 1, 1, 1], // backslash
 ];
@@ -218,6 +218,7 @@ fn test_scan() {
   let mut o = String::new();
   for (t, a, s) in scan(
     br#"
+      app1(f)
       * /
       +++++ foo 100 +100 -=
       only-kebob-case
@@ -238,6 +239,10 @@ fn test_scan() {
     write!(&mut o, "{:?} {:?} {:?}\n", str::from_utf8(s).unwrap(), t, a);
   }
   expect_test::expect![[r#"
+      "app1" Symbol false
+      "(" LParen true
+      "f" Symbol true
+      ")" RParen true
       "*" Mul false
       "/" Div false
       "+++++" Error false

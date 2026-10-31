@@ -14,7 +14,7 @@ pub struct Module {
 }
 
 pub struct FunDef {
-  pub name: Symbol,
+  pub name: Option<Symbol>,
   pub pos: usize,
   pub len: usize,
 }

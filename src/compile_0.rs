@@ -18,6 +18,8 @@ pub fn compile<'a>(item_list: &[ast::Item<'a>]) -> ssa::Module {
   let mut ctx = Ctx::new();
 
   for ast::Item::Fun(f) in item_list.iter() {
+    let name = f.name.map(|s| ctx.symbol_table.intern(s));
+    let pos = ctx.out.code.len();
     ctx.scope.enter();
     let _ = ctx.out.emit_label(f.args.len());
     for (i, s) in f.args.iter().enumerate() {
@@ -28,10 +30,12 @@ pub fn compile<'a>(item_list: &[ast::Item<'a>]) -> ssa::Module {
     }
     ctx.compile_block_tail(&f.body);
     ctx.scope.leave();
+    let len = ctx.out.code.len() - pos;
+    ctx.out.fun_defs.push(ssa::FunDef { name, pos, len });
   }
 
   ssa::Module {
-    fun_defs: Box::from([]),
+    fun_defs: ctx.out.fun_defs.into_boxed_slice(),
     code: ctx.out.code.into_boxed_slice(),
   }
 }
@@ -97,6 +101,7 @@ struct ScopeCtx<'a> {
 
 struct Out {
   block_label: usize,
+  fun_defs: Vec<ssa::FunDef>,
   code: Vec<ssa::Inst>,
 }
 
@@ -290,6 +295,7 @@ impl<'a> Ctx<'a> {
       symbol_table: SymbolTable::new(),
       out: Out {
         block_label: 0,
+        fun_defs: Vec::new(),
         code: Vec::new(),
       },
     }

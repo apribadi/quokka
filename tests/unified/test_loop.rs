@@ -1,52 +1,53 @@
 #![allow(unused_must_use)]
 
-use crate::util;
+use crate::util::dump;
 use expect_test::expect;
 
 #[test]
-fn test_fib_loop() {
+fn test_loop() {
   let mut out = String::new();
 
-  util::dump(&mut out, "
-    fun foo(n) {
-      let mut x = 0
-      let mut i = 0
-      loop {
-        if ! (i < n) { return x }
-        x += i
-        i += 1
-      }
-    }
+  dump(&mut out, "
+    fun foo() { loop { break 1 } }
+    fun bar() { loop { continue } }
+    fun baz() { loop { return 1 } }
+    fun qux() { let x, y = loop { break 1, 2 } return x + y }
   ");
 
   expect![[r#"
-      %0 LABEL 1
-      %1 = ARG 0
-      %2 = 0
-      %3 = DEF-LOCAL %2
-      %4 = 0
-      %5 = DEF-LOCAL %4
-      %6 ==> GOTO %7
-      %7 LABEL 0
-      %8 = [ %5 ]
-      %9 = %8 < %1
-      %10 = ! %9
-      %11 COND %10
-      %12 ==> GOTO %18
-      %13 ==> GOTO %14
-      %14 LABEL 0
-      %15 = [ %3 ]
-      %16 PUT 0 %15
-      %17 RET
+      === fun foo ===
+      %0 LABEL 0
+      %1 ==> GOTO %2
+      %2 LABEL 0
+      %3 = 1
+      %4 PUT 0 %3
+      %5 RET
+      === fun bar ===
+      %6 LABEL 0
+      %7 ==> GOTO %8
+      %8 LABEL 0
+      %9 ==> GOTO %8
+      === fun baz ===
+      %10 LABEL 0
+      %11 ==> GOTO %12
+      %12 LABEL 0
+      %13 = 1
+      %14 PUT 0 %13
+      %15 RET
+      === fun qux ===
+      %16 LABEL 0
+      %17 ==> GOTO %18
       %18 LABEL 0
-      %19 = [ %5 ]
-      %20 = [ %3 ]
-      %21 = %20 + %19
-      %22 [ %3 ] <- %21
-      %23 = 1
-      %24 = [ %5 ]
-      %25 = %24 + %23
-      %26 [ %5 ] <- %25
-      %27 ==> GOTO %7
+      %19 = 1
+      %20 = 2
+      %21 PUT 0 %19
+      %22 PUT 1 %20
+      %23 ==> GOTO %24
+      %24 LABEL 2
+      %25 = ARG 0
+      %26 = ARG 1
+      %27 = %25 + %26
+      %28 PUT 0 %27
+      %29 RET
   "#]].assert_eq(out.drain(..).as_ref());
 }

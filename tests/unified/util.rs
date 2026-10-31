@@ -13,12 +13,17 @@ pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
 pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
   let module = quokka::parser::parse(source.as_bytes());
   let module = quokka::compile_0::compile(&module);
-  // for f in module.decl.iter() {
-    // write!(out, "=== fun {} : {} ===\n", f.name, environment[f.name]).unwrap();
-
-  for i in 0 .. module.code.len() {
-    let inst = module.code[i];
-    write!(out, "%{} {}\n", i, inst);
+  for f in module.fun_defs.iter() {
+    match f.name {
+      None => { write!(out, "=== fun _ ===\n"); }
+      Some(s) => { write!(out, "=== fun {} ===\n", s); }
+    }
+    for i in f.pos .. f.pos + f.len {
+      let inst = module.code[i];
+      write!(out, "%{} {}\n", i, inst);
+    }
+  }
+}
     /*
     match inst {
       | quokka::ssa_0::Inst::Fail
@@ -54,5 +59,3 @@ pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
       }
     }
     */
-  }
-}
