@@ -3,7 +3,6 @@
 use crate::symbol::Symbol;
 
 type Arity = usize;
-type Field = usize;
 type Index = usize;
 type Label = usize;
 type Local = usize;
@@ -31,13 +30,14 @@ pub enum Inst {
   DefLocal(Value),
   GetLocal(Local),
   SetLocal(Local, Value),
-  GetField(Value, Field),
-  SetField(Value, Field, Value),
+  GetField(Value, Symbol),
+  SetField(Value, Symbol, Value),
   GetIndex(Value, Value),
   SetIndex(Value, Value, Value),
   Op1(Op1, Value),
   Op2(Op2, Value, Value),
   Call(Value),
+  TailCall(Value),
   Cond(Value),
   Jump(Label),
   Ret,
@@ -54,7 +54,7 @@ pub enum Op1 {
 
 // NB:
 //
-// we normalize some comparisons
+// we normalize some comparison operators
 // - x != y => not (x == y)
 // - x >= y => y <= x
 // - x > y => y < x
