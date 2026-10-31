@@ -48,7 +48,7 @@ impl SymbolTable {
   pub fn intern(&mut self, s: &str) -> Symbol {
     let n = intern(s);
     if ! is_inline(n) {
-      match self.0.entry(n.0) {
+      match self.0.entry(n) {
         Vacant(entry) => {
           entry.insert(String::from(s));
         }

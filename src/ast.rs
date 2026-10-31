@@ -15,7 +15,7 @@ pub struct Fun<'a> {
 #[derive(Debug)]
 pub enum Stmt<'a> {
   ExprList(Box<[Expr<'a>]>),                   // a, b
-  Let(Box<[Bind<'a>]>, Box<[Expr<'a>]>),    // let x, y = a, b
+  Let(Box<[Bind<'a>]>, Box<[Expr<'a>]>),       // let x, y = a, b
   DefLocal(Option<Symbol<'a>>, Expr<'a>),      // let mutable x = a
   SetLocal(Symbol<'a>, Expr<'a>),              // x = 1
   SetField(Expr<'a>, Symbol<'a>, Expr<'a>),    // a.foo = 1

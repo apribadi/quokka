@@ -288,6 +288,77 @@ impl<'a> Ctx<'a> {
         self.stack.value.push(self.out.emit(Inst::ConstI64(x)));
         Effect::NumValues(1)
       }
+      Expr::Op1(ref e) => {
+        let (op, ref x) = **e;
+        let x = self.compile_expr(x).into_value(self);
+        let op =
+          match op {
+            ast::Op1::Neg => ssa::Op1::Neg,
+            ast::Op1::Not => ssa::Op1::Not,
+          };
+        self.stack.value.push(self.out.emit(Inst::Op1(op, x)));
+        Effect::NumValues(1)
+      }
+      Expr::Op2(ref e) => {
+        let (op, ref x, ref y) = **e;
+        let x = self.compile_expr(x).into_value(self);
+        let y = self.compile_expr(y).into_value(self);
+        let op =
+          match op {
+            ast::Op2::Add => ssa::Op2::Add,
+            ast::Op2::BitAnd => ssa::Op2::BitAnd,
+            ast::Op2::BitOr => ssa::Op2::BitOr,
+            ast::Op2::BitXor => ssa::Op2::BitXor,
+            ast::Op2::CmpEq => ssa::Op2::CmpEq,
+            ast::Op2::CmpLe => ssa::Op2::CmpLe,
+            ast::Op2::CmpLt => ssa::Op2::CmpLt,
+            ast::Op2::Div => ssa::Op2::Div,
+            ast::Op2::Mul => ssa::Op2::Mul,
+            ast::Op2::Rem => ssa::Op2::Rem,
+            ast::Op2::Shl => ssa::Op2::Shl,
+            ast::Op2::Shr => ssa::Op2::Shr,
+            ast::Op2::Sub => ssa::Op2::Sub,
+            ast::Op2::CmpNe => {
+              self.stack.value.push(self.out.emit(Inst::Op2(ssa::Op2::CmpEq, x, y)));
+              return Effect::NumValues(1);
+            }
+            ast::Op2::CmpGe => {
+              self.stack.value.push(self.out.emit(Inst::Op2(ssa::Op2::CmpLe, y, x)));
+              return Effect::NumValues(1);
+            }
+            ast::Op2::CmpGt => {
+              self.stack.value.push(self.out.emit(Inst::Op2(ssa::Op2::CmpLt, y, x)));
+              return Effect::NumValues(1);
+            }
+          };
+        self.stack.value.push(self.out.emit(Inst::Op2(op, x, y)));
+        Effect::NumValues(1)
+      }
+      /*
+      Expr::Op2(&(f, ref x, ref y)) => {
+        let x = compile_expr(x, ctx, out).into_value(ctx, out);
+        let y = compile_expr(y, ctx, out).into_value(ctx, out);
+        let x = out.emit(Inst::Op2(f, x, y));
+        ctx.values.push(x);
+        return What::NumValues(1);
+      }
+  Add,    // a + b
+  BitAnd, // a & b
+  BitOr,  // a | b
+  BitXor, // a ^ b
+  CmpEq,  // a == b
+  CmpGe,  // a >= b
+  CmpGt,  // a > b
+  CmpLe,  // a <= b
+  CmpLt,  // a < b
+  CmpNe,  // a != b
+  Div,    // a / b
+  Mul,    // a * b
+  Rem,    // a % b
+  Shl,    // a << b
+  Shr,    // a >> b
+  Sub,    // a - b
+      */
       Expr::Variable(s) => {
         match self.scope.lookup(s) {
           None => {
@@ -385,19 +456,6 @@ impl<'a> Ctx<'a> {
         patch_point_list(a, ctx.points.pop_seq(m), out);
         let n = pop_loop(&mut ctx.loops, &mut ctx.points);
         return What::NumPoints(n);
-      }
-      Expr::Op1(&(f, ref x)) => {
-        let x = compile_expr(x, ctx, out).into_value(ctx, out);
-        let x = out.emit(Inst::Op1(f, x));
-        ctx.values.push(x);
-        return What::NumValues(1);
-      }
-      Expr::Op2(&(f, ref x, ref y)) => {
-        let x = compile_expr(x, ctx, out).into_value(ctx, out);
-        let y = compile_expr(y, ctx, out).into_value(ctx, out);
-        let x = out.emit(Inst::Op2(f, x, y));
-        ctx.values.push(x);
-        return What::NumValues(1);
       }
       Expr::Or(&(ref x, ref y)) => {
         let x = compile_expr(x, ctx, out).into_value(ctx, out);
