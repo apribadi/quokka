@@ -437,12 +437,12 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Token::Let => {
           self.next();
-          if self.token() == Token::Mutable {
+          if self.token() == Token::Mut {
             self.next();
             let name = self.parse_name();
             self.expect(Token::Equal);
             self.parse_expr();
-            self.on_let_mutable(name);
+            self.on_let_mut(name);
             n_stmts += 1;
           } else {
             // NB: we allow a list of zero binds, like
@@ -689,7 +689,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::SetIndex(x, y, z));
   }
 
-  fn on_let_mutable(&mut self, name: Option<&'a str>) {
+  fn on_let_mut(&mut self, name: Option<&'a str>) {
     let x = self.pop_expr();
     self.push_stmt(Stmt::DefLocal(name, x));
   }

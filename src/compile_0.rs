@@ -14,6 +14,28 @@ use crate::symbol::Symbol;
 use crate::symbol::SymbolTable;
 use std::mem::replace;
 
+pub fn compile<'a>(item_list: &[ast::Item<'a>]) -> ssa::Module {
+  let mut ctx = Ctx::new();
+
+  for ast::Item::Fun(f) in item_list.iter() {
+    ctx.scope.enter();
+    let _ = ctx.out.emit_label(f.args.len());
+    for (i, s) in f.args.iter().enumerate() {
+      let x = ctx.out.emit(Inst::Arg(i));
+      if let Some(s) = s.name {
+        ctx.scope.bind(s, Referent::Value(x))
+      }
+    }
+    ctx.compile_block_tail(&f.body);
+    ctx.scope.leave();
+  }
+
+  ssa::Module {
+    fun_defs: Box::from([]),
+    code: ctx.out.code.into_boxed_slice(),
+  }
+}
+
 type Value = usize;
 type Local = usize;
 
@@ -105,7 +127,7 @@ impl What {
       What::NumPoints(num_points) => {
         let a = ctx.out.emit_label(1);
         ctx.patch_list(num_points, a);
-        ctx.out.emit(Inst::GetArg(0))
+        ctx.out.emit(Inst::Arg(0))
       }
       What::NumValues(1) => {
         ctx.stack.value.pop().unwrap()
@@ -115,7 +137,7 @@ impl What {
         let _ = ctx.stack.value.pop_list(num_values);
         let _ = ctx.out.emit(Inst::Fail);
         let _ = ctx.out.emit_label(1);
-        ctx.out.emit(Inst::GetArg(0))
+        ctx.out.emit(Inst::Arg(0))
       }
     }
   }
@@ -126,7 +148,7 @@ impl What {
         let a = ctx.out.emit_label(arity);
         ctx.patch_list(num_points, a);
         for i in 0 .. arity {
-          ctx.stack.value.push(ctx.out.emit(Inst::GetArg(i)));
+          ctx.stack.value.push(ctx.out.emit(Inst::Arg(i)));
         }
       }
       What::NumValues(num_values) if arity == num_values => {
@@ -137,7 +159,7 @@ impl What {
         let _ = ctx.out.emit(Inst::Fail);
         let _ = ctx.out.emit_label(arity);
         for i in 0 .. arity {
-          ctx.stack.value.push(ctx.out.emit(Inst::GetArg(i)));
+          ctx.stack.value.push(ctx.out.emit(Inst::Arg(i)));
         }
       }
     }
@@ -150,7 +172,7 @@ impl What {
       }
       What::NumValues(num_values) => {
         for (i, x) in ctx.stack.value.pop_list(num_values).enumerate() {
-          let _ = ctx.out.emit(Inst::SetOut(i, x));
+          let _ = ctx.out.emit(Inst::Put(i, x));
         }
         // TODO: exity
         ctx.stack.point.push(ctx.out.emit_point(Some(num_values)));
@@ -228,7 +250,7 @@ impl Out {
   }
 
   fn emit_point(&mut self, arity: Option<usize>) -> Point {
-    let i = self.emit(Inst::Jump(usize::MAX));
+    let i = self.emit(Inst::Goto(usize::MAX));
     Point { index: i, arity }
   }
 
@@ -242,7 +264,7 @@ impl Out {
     if let Some(n) = p.arity && n != a.arity {
       self.code[p.index] = Inst::Fail; // arity mismatch
     } else {
-      self.code[p.index] = Inst::Jump(a.index);
+      self.code[p.index] = Inst::Goto(a.index);
     }
   }
 }
@@ -290,7 +312,7 @@ impl<'a> Ctx<'a> {
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
         for (i, x) in self.stack.value.pop_list(n).enumerate() {
-          let _ = self.out.emit(Inst::SetOut(i, x));
+          let _ = self.out.emit(Inst::Put(i, x));
         }
         let _ = self.out.emit(Inst::Call(f));
         self.stack.point.push(self.out.emit_point(None));
@@ -392,7 +414,7 @@ impl<'a> Ctx<'a> {
         let a = self.out.emit_label(0);
         self.out.patch(p, a);
         let z = self.out.emit(Inst::ConstBool(false));
-        let _ = self.out.emit(Inst::SetOut(0, z));
+        let _ = self.out.emit(Inst::Put(0, z));
         let r = self.out.emit_point(Some(1));
         self.stack.point.push(r);
         let b = self.out.emit_label(0);
@@ -412,7 +434,7 @@ impl<'a> Ctx<'a> {
         let b = self.out.emit_label(0);
         self.out.patch(q, b);
         let z = self.out.emit(Inst::ConstBool(true));
-        let _ = self.out.emit(Inst::SetOut(0, z));
+        let _ = self.out.emit(Inst::Put(0, z));
         let r = self.out.emit_point(Some(1));
         self.stack.point.push(r);
         What::NumPoints(n + 1)
@@ -445,7 +467,7 @@ impl<'a> Ctx<'a> {
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
         for (i, x) in self.stack.value.pop_list(n).enumerate() {
-          let _ = self.out.emit(Inst::SetOut(i, x));
+          let _ = self.out.emit(Inst::Put(i, x));
         }
         let _ = self.out.emit(Inst::TailCall(f));
       }
@@ -509,7 +531,7 @@ impl<'a> Ctx<'a> {
         let a = self.out.emit_label(0);
         self.out.patch(p, a);
         let z = self.out.emit(Inst::ConstBool(false));
-        let _ = self.out.emit(Inst::SetOut(0, z));
+        let _ = self.out.emit(Inst::Put(0, z));
         let _ = self.out.emit(Inst::Ret);
         let b = self.out.emit_label(0);
         self.out.patch(q, b);
@@ -527,7 +549,7 @@ impl<'a> Ctx<'a> {
         let b = self.out.emit_label(0);
         self.out.patch(q, b);
         let z = self.out.emit(Inst::ConstBool(true));
-        let _ = self.out.emit(Inst::SetOut(0, z));
+        let _ = self.out.emit(Inst::Put(0, z));
         let _ = self.out.emit(Inst::Ret);
       }
       Expr::LiteralBool(..)
@@ -539,7 +561,7 @@ impl<'a> Ctx<'a> {
       | Expr::Variable(..) => {
         let What::NumValues(1) = self.compile_expr(expr) else { unreachable!() };
         let x = self.stack.value.pop().unwrap();
-        let _ = self.out.emit(Inst::SetOut(0, x));
+        let _ = self.out.emit(Inst::Put(0, x));
         let _ = self.out.emit(Inst::Ret);
       }
     }
@@ -580,7 +602,7 @@ impl<'a> Ctx<'a> {
           }
           LoopKind::NonTail { head, .. } | LoopKind::Tail { head } => {
             // NB: currently, all loop headers have arity zero
-            let _ = self.out.emit(Inst::Jump(head.index));
+            let _ = self.out.emit(Inst::Goto(head.index));
           }
         }
         What::NEVER
@@ -730,7 +752,7 @@ impl<'a> Ctx<'a> {
         self.stack.value.push(x);
       }
       for (i, x) in self.stack.value.pop_list(n).enumerate() {
-        let _ = self.out.emit(Inst::SetOut(i, x));
+        let _ = self.out.emit(Inst::Put(i, x));
       }
       let _ = self.out.emit(Inst::Ret);
     }

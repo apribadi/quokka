@@ -196,7 +196,7 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b"if" => Token::If,
         b"let" => Token::Let,
         b"loop" => Token::Loop,
-        b"mutable" => Token::Mutable,
+        b"mut" => Token::Mut,
         b"or" => Token::ShortCircuitOr,
         b"return" => Token::Return,
         b"true" => Token::True,
@@ -212,6 +212,8 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
 
 #[test]
 fn test_scan() {
+  #![allow(unused_must_use)]
+
   use std::fmt::Write;
   let mut o = String::new();
   for (t, a, s) in scan(
