@@ -109,7 +109,7 @@ impl std::fmt::Display for Op2 {
 impl std::fmt::Display for Inst {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::Label(n, _) => write!(f, "LABEL {}", n),
+      Self::Label(n, k) => write!(f, "LABEL {} {}", n, k),
       Self::Pop(i) => write!(f, "= POP {}", i),
       Self::Put(i, x) => write!(f, "PUT {} %{}", i, x),
       Self::Const(s) => write!(f, "= CONST {}", s),

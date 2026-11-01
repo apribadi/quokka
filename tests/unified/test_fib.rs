@@ -24,7 +24,7 @@ fn test_fib_loop() {
 
   expect![[r#"
       === fun fib ===
-      %0 LABEL 1
+      %0 LABEL 1 0
       %1 = POP 0
       %2 = 1
       %3 = DEF-LOCAL %2
@@ -32,18 +32,18 @@ fn test_fib_loop() {
       %5 = DEF-LOCAL %4
       %6 = DEF-LOCAL %1
       %7 ==> GOTO %8
-      %8 LABEL 0
+      %8 LABEL 0 0
       %9 = [ %6 ]
       %10 = 0
       %11 = %9 == %10
       %12 COND %11
       %13 ==> GOTO %19
       %14 ==> GOTO %15
-      %15 LABEL 0
+      %15 LABEL 0 1
       %16 = [ %5 ]
       %17 PUT 0 %16
       %18 RET
-      %19 LABEL 0
+      %19 LABEL 0 0
       %20 = [ %3 ]
       %21 = [ %5 ]
       %22 = %20 + %21
@@ -79,7 +79,7 @@ fn test_fib_while() {
 
   expect![[r#"
       === fun fib ===
-      %0 LABEL 1
+      %0 LABEL 1 0
       %1 = POP 0
       %2 = 1
       %3 = DEF-LOCAL %2
@@ -87,7 +87,7 @@ fn test_fib_while() {
       %5 = DEF-LOCAL %4
       %6 = DEF-LOCAL %1
       %7 ==> GOTO %8
-      %8 LABEL 0
+      %8 LABEL 0 0
       %9 = [ %6 ]
       %10 = 0
       %11 = %9 == %10
@@ -95,7 +95,7 @@ fn test_fib_while() {
       %13 COND %12
       %14 ==> GOTO %28
       %15 ==> GOTO %16
-      %16 LABEL 0
+      %16 LABEL 0 0
       %17 = [ %3 ]
       %18 = [ %5 ]
       %19 = %17 + %18
@@ -107,7 +107,7 @@ fn test_fib_while() {
       %25 = %23 - %24
       %26 [ %6 ] <- %25
       %27 ==> GOTO %8
-      %28 LABEL 0
+      %28 LABEL 0 1
       %29 = [ %5 ]
       %30 PUT 0 %29
       %31 RET
@@ -134,7 +134,7 @@ fn test_fib_tailcall() {
 
   expect![[r#"
       === fun aux ===
-      %0 LABEL 3
+      %0 LABEL 3 0
       %1 = POP 0
       %2 = POP 1
       %3 = POP 2
@@ -143,7 +143,7 @@ fn test_fib_tailcall() {
       %6 COND %5
       %7 ==> GOTO %9
       %8 ==> GOTO %18
-      %9 LABEL 0
+      %9 LABEL 0 3
       %10 = %1 + %2
       %11 = 1
       %12 = %3 - %11
@@ -152,11 +152,11 @@ fn test_fib_tailcall() {
       %15 PUT 1 %10
       %16 PUT 2 %12
       %17 TAIL-CALL %13
-      %18 LABEL 0
+      %18 LABEL 0 1
       %19 PUT 0 %2
       %20 RET
       === fun fib ===
-      %21 LABEL 1
+      %21 LABEL 1 3
       %22 = POP 0
       %23 = 1
       %24 = 0

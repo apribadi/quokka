@@ -4,6 +4,7 @@ pub(crate) use hashbrown::hash_map::HashMap;
 pub(crate) use std::fmt::Write;
 pub(crate) use hashbrown::hash_map::Entry::*;
 pub(crate) use std::num::NonZeroU64;
+pub(crate) use std::debug_assert_matches;
 
 pub(crate) fn concat<T>(x: Box<[T]>, y: Box<[T]>) {
   let mut a = Vec::<T>::from(x);

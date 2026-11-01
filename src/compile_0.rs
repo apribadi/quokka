@@ -143,21 +143,25 @@ impl What {
     }
   }
 
-  fn into_value_list<'a>(self, arity: usize, ctx: &mut Ctx<'a>) {
+  fn into_value_list<'a>(self, n: usize, ctx: &mut Ctx<'a>) {
     match self {
       What::NumPoints(num_points) => {
-        let a = ctx.out.emit_label(arity);
+        let a = ctx.out.emit_label(n);
         ctx.patch_list(num_points, a);
-        ctx.emit_pops(arity);
+        for i in 0 .. n {
+          ctx.stack.value.push(ctx.out.emit(Inst::Pop(i)));
+        }
       }
-      What::NumValues(num_values) if arity == num_values => {
+      What::NumValues(num_values) if n == num_values => {
       }
       What::NumValues(num_values) => {
         // error, arity mismatch
         let _ = ctx.stack.value.pop_list(num_values);
         let _ = ctx.out.emit(Inst::Fail);
-        let _ = ctx.out.emit_label(arity);
-        ctx.emit_pops(arity);
+        let _ = ctx.out.emit_label(n);
+        for i in 0 .. n {
+          ctx.stack.value.push(ctx.out.emit(Inst::Pop(i)));
+        }
       }
     }
   }
@@ -168,7 +172,7 @@ impl What {
         num_points
       }
       What::NumValues(num_values) => {
-        ctx.emit_puts(num_values);
+        ctx.out.emit_put_list(ctx.stack.value.pop_list(num_values));
         ctx.stack.point.push(ctx.out.emit_point(num_values));
         1
       }
@@ -260,7 +264,7 @@ impl Out {
   }
 
   fn patch(&mut self, p: Point, a: Label) {
-    debug_assert!(self.code[p.index] == Inst::Goto(usize::MAX));
+    debug_assert_matches!(self.code[p.index], Inst::Goto(usize::MAX));
     if let Some(n) = p.arity && n != a.arity {
       self.code[p.index] = Inst::Fail; // arity mismatch
     } else {
@@ -272,6 +276,17 @@ impl Out {
     let a = self.emit_label(n);
     self.patch(p, a);
     a
+  }
+
+  fn emit_put_list(&mut self, xs: impl IntoIterator<Item = Value>) {
+    debug_assert_matches!(self.code[self.block_label], Inst::Label(_, 0));
+    let mut i = 0;
+    for x in xs {
+      let _ = self.emit(Inst::Put(i, x));
+      i += 1;
+    }
+    let Inst::Label(_, ref mut n) = self.code[self.block_label] else { unreachable!() };
+    *n = i;
   }
 
   fn emit_op1(&mut self, op: ast::Op1, x: Value) -> Value {
@@ -354,18 +369,6 @@ impl<'a> Ctx<'a> {
     }
   }
 
-  fn emit_pops(&mut self, n: usize) {
-    for i in 0 .. n {
-      self.stack.value.push(self.out.emit(Inst::Pop(i)));
-    }
-  }
-
-  fn emit_puts(&mut self, n: usize) {
-    for (i, x) in self.stack.value.pop_list(n).enumerate() {
-      let _ = self.out.emit(Inst::Put(i, x));
-    }
-  }
-
   fn compile_expr(&mut self, expr: &Expr<'a>) -> What {
     match *expr {
       Expr::Call(ref e) => {
@@ -374,7 +377,7 @@ impl<'a> Ctx<'a> {
           self.compile_expr(x).into_value_list(1, self);
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
-        self.emit_puts(args.len());
+        self.out.emit_put_list(self.stack.value.pop_list(args.len()));
         let _ = self.out.emit(Inst::Call(f));
         let p = self.out.emit(Inst::Goto(usize::MAX));
         self.stack.point.push(Point { index: p, arity: None });
@@ -471,7 +474,7 @@ impl<'a> Ctx<'a> {
         let q = self.out.emit_point(0);
         let _ = self.out.emit_label_after(p, 0);
         let z = self.out.emit(Inst::ConstBool(false));
-        let _ = self.out.emit(Inst::Put(0, z));
+        self.out.emit_put_list([z]);
         self.stack.point.push(self.out.emit_point(1));
         let _ = self.out.emit_label_after(q, 0);
         let n = self.compile_expr(y).into_point_list(self);
@@ -487,7 +490,7 @@ impl<'a> Ctx<'a> {
         let n = self.compile_expr(y).into_point_list(self);
         let _ = self.out.emit_label_after(q, 0);
         let z = self.out.emit(Inst::ConstBool(true));
-        let _ = self.out.emit(Inst::Put(0, z));
+        self.out.emit_put_list([z]);
         self.stack.point.push(self.out.emit_point(1));
         What::NumPoints(n + 1)
       }
@@ -517,7 +520,7 @@ impl<'a> Ctx<'a> {
           self.compile_expr(x).into_value_list(1, self);
         }
         let f = self.compile_expr(f).into_value(self); // NB: evaluate *after* args
-        self.emit_puts(args.len());
+        self.out.emit_put_list(self.stack.value.pop_list(args.len()));
         let _ = self.out.emit(Inst::TailCall(f));
       }
       Expr::Fail => {
@@ -573,7 +576,7 @@ impl<'a> Ctx<'a> {
         let q = self.out.emit_point(0);
         let _ = self.out.emit_label_after(p, 0);
         let z = self.out.emit(Inst::ConstBool(false));
-        let _ = self.out.emit(Inst::Put(0, z));
+        self.out.emit_put_list([z]);
         let _ = self.out.emit(Inst::Ret);
         let _ = self.out.emit_label_after(q, 0);
         self.compile_expr_tail(y);
@@ -588,7 +591,7 @@ impl<'a> Ctx<'a> {
         self.compile_expr_tail(y);
         let _ = self.out.emit_label_after(q, 0);
         let z = self.out.emit(Inst::ConstBool(true));
-        let _ = self.out.emit(Inst::Put(0, z));
+        self.out.emit_put_list([z]);
         let _ = self.out.emit(Inst::Ret);
       }
       Expr::LiteralBool(..)
@@ -600,7 +603,7 @@ impl<'a> Ctx<'a> {
       | Expr::Variable(..) => {
         let What::NumValues(1) = self.compile_expr(expr) else { unreachable!() };
         let x = self.stack.value.pop().unwrap();
-        let _ = self.out.emit(Inst::Put(0, x));
+        self.out.emit_put_list([x]);
         let _ = self.out.emit(Inst::Ret);
       }
     }
@@ -780,7 +783,7 @@ impl<'a> Ctx<'a> {
       for x in xs.iter() {
         self.compile_expr(x).into_value_list(1, self);
       }
-      self.emit_puts(xs.len());
+      self.out.emit_put_list(self.stack.value.pop_list(xs.len()));
       let _ = self.out.emit(Inst::Ret);
     }
   }
