@@ -101,11 +101,11 @@ struct Out {
 trait IntoWhat: Sized {
   type What;
 
-  fn from_value<'a>(self, x: Value, ctx: &mut Ctx<'a>) -> Self::What;
+  fn yield_value<'a>(self, x: Value, ctx: &mut Ctx<'a>) -> Self::What;
 
-  fn from_value_list<'a>(self, n: usize, ctx: &mut Ctx<'a>) -> Self::What;
+  fn yield_value_list<'a>(self, n: usize, ctx: &mut Ctx<'a>) -> Self::What;
 
-  fn from_point_list<'a>(self, n: usize, ctx: &mut Ctx<'a>) -> Self::What;
+  fn yield_point_list<'a>(self, n: usize, ctx: &mut Ctx<'a>) -> Self::What;
 }
 
 struct IntoNil;
@@ -113,14 +113,14 @@ struct IntoNil;
 impl IntoWhat for IntoNil {
   type What = ();
 
-  fn from_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
     // error, arity mismatch
     let _ = value;
     let _ = ctx.out.emit(Inst::Fail);
     let _ = ctx.out.emit_label(0);
   }
 
-  fn from_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     if value_count != 0 {
       // error, arity mismatch
       let _ = ctx.stack.value.pop_list(value_count);
@@ -129,7 +129,7 @@ impl IntoWhat for IntoNil {
     }
   }
 
-  fn from_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     let a = ctx.out.emit_label(0);
     for p in ctx.stack.point.pop_list(point_count) {
       ctx.out.patch(p, a)
@@ -142,11 +142,11 @@ struct IntoValue;
 impl IntoWhat for IntoValue {
   type What = Value;
 
-  fn from_value<'a>(self, value: Value, _: &mut Ctx<'a>) -> Self::What {
+  fn yield_value<'a>(self, value: Value, _: &mut Ctx<'a>) -> Self::What {
     value
   }
 
-  fn from_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     if value_count == 1 {
       ctx.stack.value.pop().unwrap()
     } else {
@@ -158,7 +158,7 @@ impl IntoWhat for IntoValue {
     }
   }
 
-  fn from_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     let a = ctx.out.emit_label(1);
     for p in ctx.stack.point.pop_list(point_count) {
       ctx.out.patch(p, a)
@@ -172,7 +172,7 @@ struct IntoValueList(usize);
 impl IntoWhat for IntoValueList {
   type What = ();
 
-  fn from_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
     if self.0 == 1 {
       ctx.stack.value.push(value);
     } else {
@@ -185,7 +185,7 @@ impl IntoWhat for IntoValueList {
     }
   }
 
-  fn from_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     if self.0 != value_count {
       // error, arity mismatch
       let _ = ctx.stack.value.pop_list(value_count);
@@ -197,7 +197,7 @@ impl IntoWhat for IntoValueList {
     }
   }
 
-  fn from_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     let a = ctx.out.emit_label(self.0);
     for p in ctx.stack.point.pop_list(point_count) {
       ctx.out.patch(p, a)
@@ -213,19 +213,19 @@ struct IntoPointList;
 impl IntoWhat for IntoPointList {
   type What = usize;
 
-  fn from_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
     ctx.out.emit_put_list([value]);
     ctx.stack.point.push(ctx.out.emit_point(1));
     1
   }
 
-  fn from_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     ctx.out.emit_put_list(ctx.stack.value.pop_list(value_count));
     ctx.stack.point.push(ctx.out.emit_point(value_count));
     1
   }
 
-  fn from_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     let _ = ctx;
     point_count
   }
@@ -236,19 +236,19 @@ struct IntoBackEdge(Label);
 impl IntoWhat for IntoBackEdge {
   type What = ();
 
-  fn from_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value<'a>(self, value: Value, ctx: &mut Ctx<'a>) -> Self::What {
     ctx.out.emit_put_list([value]);
     let p = ctx.out.emit_point(1);
     ctx.out.patch(p, self.0);
   }
 
-  fn from_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_value_list<'a>(self, value_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     ctx.out.emit_put_list(ctx.stack.value.pop_list(value_count));
     let p = ctx.out.emit_point(value_count);
     ctx.out.patch(p, self.0);
   }
 
-  fn from_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
+  fn yield_point_list<'a>(self, point_count: usize, ctx: &mut Ctx<'a>) -> Self::What {
     for p in ctx.stack.point.pop_list(point_count) {
       ctx.out.patch(p, self.0)
     }
@@ -426,18 +426,6 @@ impl<'a> Ctx<'a> {
     }
   }
 
-  fn yield_value<I: IntoWhat>(&mut self, into: I, value: Value) -> I::What {
-    into.from_value(value, self)
-  }
-
-  fn yield_value_list<I: IntoWhat>(&mut self, into: I, value_count: usize) -> I::What {
-    into.from_value_list(value_count, self)
-  }
-
-  fn yield_point_list<I: IntoWhat>(&mut self, into: I, point_count: usize) -> I::What {
-    into.from_point_list(point_count, self)
-  }
-
   fn compile_expr<I: IntoWhat>(&mut self, expr: &Expr<'a>, into: I) -> I::What {
     match *expr {
       Expr::Call(ref e) => {
@@ -451,11 +439,11 @@ impl<'a> Ctx<'a> {
         let _ = self.out.emit(Inst::Call(f));
         let p = self.out.emit(Inst::Goto(usize::MAX));
         self.stack.point.push(Point { index: p, arity: None });
-        self.yield_point_list(into, 1)
+        into.yield_point_list(1, self)
       }
       Expr::Fail => {
         let _ = self.out.emit(Inst::Fail);
-        self.yield_point_list(into, 0)
+        into.yield_point_list(0, self)
       }
       Expr::If(ref e) => {
         let (ref x, ref ys) = **e;
@@ -465,7 +453,7 @@ impl<'a> Ctx<'a> {
         let q = self.out.emit_point(0);
         let _ = self.out.emit_label_after(q, 0); // true
         let n = self.compile_block(ys, IntoPointList);
-        self.yield_point_list(into, 1 + n)
+        into.yield_point_list(1 + n, self)
       }
       Expr::IfElse(ref e) => {
         let (ref x, ref ys, ref zs) = **e;
@@ -477,29 +465,29 @@ impl<'a> Ctx<'a> {
         let m = self.compile_block(zs, IntoPointList);
         let _ = self.out.emit_label_after(q, 0); // true
         let n = self.compile_block(ys, IntoPointList);
-        self.yield_point_list(into, m + n)
+        into.yield_point_list(m + n, self)
       }
       Expr::GetField(ref e) => {
         let (ref x, s) = **e;
         let s = self.symbol_table.intern(s);
         let x = self.compile_expr(x, IntoValue);
         let y = self.out.emit(Inst::GetField(x, s));
-        self.yield_value(into, y)
+        into.yield_value(y, self)
       }
       Expr::GetIndex(ref e) => {
         let (ref x, ref y) = **e;
         let y = self.compile_expr(y, IntoValue);
         let x = self.compile_expr(x, IntoValue);
         let z = self.out.emit(Inst::GetIndex(x, y));
-        self.yield_value(into, z)
+        into.yield_value(z, self)
       }
       Expr::LiteralBool(x) => {
         let y = self.out.emit(Inst::ConstBool(x));
-        self.yield_value(into, y)
+        into.yield_value(y, self)
       }
       Expr::LiteralI64(x) => {
         let y = self.out.emit(Inst::ConstI64(x));
-        self.yield_value(into, y)
+        into.yield_value(y, self)
       }
       Expr::Loop(ref xs) => {
         let p = self.out.emit_point(0);
@@ -509,20 +497,20 @@ impl<'a> Ctx<'a> {
         self.compile_block(xs, IntoBackEdge(a));
         self.scope.leave();
         let n = self.loops.leave(&mut self.stack.point);
-        self.yield_point_list(into, n)
+        into.yield_point_list(n, self)
       }
       Expr::Op1(ref e) => {
         let (op, ref x) = **e;
         let x = self.compile_expr(x, IntoValue);
         let y = self.out.emit_op1(op, x);
-        self.yield_value(into, y)
+        into.yield_value(y, self)
       }
       Expr::Op2(ref e) => {
         let (op, ref x, ref y) = **e;
         let x = self.compile_expr(x, IntoValue);
         let y = self.compile_expr(y, IntoValue);
         let z = self.out.emit_op2(op, x, y);
-        self.yield_value(into, z)
+        into.yield_value(z, self)
       }
       Expr::Select(ref e) => {
         let (ref x, ref y, ref z) = **e;
@@ -534,7 +522,7 @@ impl<'a> Ctx<'a> {
         let m = self.compile_expr(z, IntoPointList);
         let _ = self.out.emit_label_after(q, 0); // true
         let n = self.compile_expr(y, IntoPointList);
-        self.yield_point_list(into, m + n)
+        into.yield_point_list(m + n, self)
       }
       Expr::ShortCircuitAnd(ref e) => {
         let (ref x, ref y) = **e;
@@ -548,7 +536,7 @@ impl<'a> Ctx<'a> {
         self.stack.point.push(self.out.emit_point(1));
         let _ = self.out.emit_label_after(q, 0);
         let n = self.compile_expr(y, IntoPointList);
-        self.yield_point_list(into, 1 + n)
+        into.yield_point_list(1 + n, self)
       }
       Expr::ShortCircuitOr(ref e) => {
         let (ref x, ref y) = **e;
@@ -562,7 +550,7 @@ impl<'a> Ctx<'a> {
         let z = self.out.emit(Inst::ConstBool(true));
         self.out.emit_put_list([z]);
         self.stack.point.push(self.out.emit_point(1));
-        self.yield_point_list(into, n + 1)
+        into.yield_point_list(n + 1, self)
       }
       Expr::Variable(s) => {
         let x =
@@ -574,7 +562,7 @@ impl<'a> Ctx<'a> {
             Some(&Referent::Value(x)) =>
               x,
           };
-        self.yield_value(into, x)
+        into.yield_value(x, self)
       }
     }
   }
@@ -701,7 +689,7 @@ impl<'a> Ctx<'a> {
             self.compile_expr_list_tail(xs);
           }
         }
-        self.yield_point_list(into, 0)
+        into.yield_point_list(0, self)
       }
       Stmt::Continue => {
         match self.loops.kind {
@@ -713,7 +701,7 @@ impl<'a> Ctx<'a> {
             let _ = self.out.emit(Inst::Goto(head.index));
           }
         }
-        self.yield_point_list(into, 0)
+        into.yield_point_list(0, self)
       }
       Stmt::Let(ref ss, ref xs) => {
         let n = ss.len();
@@ -725,21 +713,21 @@ impl<'a> Ctx<'a> {
             self.scope.bind(s, Referent::Value(x));
           }
         }
-        self.yield_value_list(into, 0)
+        into.yield_value_list(0, self)
       }
       Stmt::Ret(ref xs) => {
         self.compile_expr_list_tail(xs);
-        self.yield_point_list(into, 0)
+        into.yield_point_list(0, self)
       }
       Stmt::SetLocal(s, ref x) => {
         let x = self.compile_expr(x, IntoValue);
         if let Some(&Referent::Local(v)) = self.scope.lookup(s) {
           let _ = self.out.emit(Inst::SetLocal(v, x));
-          self.yield_value_list(into, 0)
+          into.yield_value_list(0, self)
         } else {
           // error, symbol does not refer to local variable
           let _ = self.out.emit(Inst::Fail);
-          self.yield_point_list(into, 0)
+          into.yield_point_list(0, self)
         }
       }
       Stmt::SetLocalCompound(s, op, ref x) => {
@@ -748,11 +736,11 @@ impl<'a> Ctx<'a> {
           let y = self.out.emit(Inst::GetLocal(v));
           let z = self.out.emit_op2(op, y, x);
           let _ = self.out.emit(Inst::SetLocal(v, z));
-          self.yield_value_list(into, 0)
+          into.yield_value_list(0, self)
         } else {
           // error, symbol does not refer to local variable
           let _ = self.out.emit(Inst::Fail);
-          self.yield_point_list(into, 0)
+          into.yield_point_list(0, self)
         }
       }
       Stmt::SetField(ref x, s, ref y) => {
@@ -760,14 +748,14 @@ impl<'a> Ctx<'a> {
         let y = self.compile_expr(y, IntoValue);
         let x = self.compile_expr(x, IntoValue);
         let _ = self.out.emit(Inst::SetField(x, s, y));
-        self.yield_value_list(into, 0)
+        into.yield_value_list(0, self)
       }
       Stmt::SetIndex(ref x, ref y, ref z) => {
         let y = self.compile_expr(y, IntoValue);
         let z = self.compile_expr(z, IntoValue);
         let x = self.compile_expr(x, IntoValue);
         let _ = self.out.emit(Inst::SetIndex(x, y, z));
-        self.yield_value_list(into, 0)
+        into.yield_value_list(0, self)
       }
       Stmt::DefLocal(s, ref x) => {
         let x = self.compile_expr(x, IntoValue);
@@ -775,7 +763,7 @@ impl<'a> Ctx<'a> {
         if let Some(s) = s {
           self.scope.bind(s, Referent::Local(v));
         }
-        self.yield_value_list(into, 0)
+        into.yield_value_list(0, self)
       }
       Stmt::While(ref x, ref ys) => {
         let p = self.out.emit_point(0);
@@ -790,7 +778,7 @@ impl<'a> Ctx<'a> {
         self.compile_block(ys, IntoBackEdge(a));
         self.scope.leave();
         let n = self.loops.leave(&mut self.stack.point);
-        self.yield_point_list(into, 1 + n)
+        into.yield_point_list(1 + n, self)
       }
     }
   }
@@ -842,7 +830,7 @@ impl<'a> Ctx<'a> {
         let x = self.compile_expr(x, IntoValue);
         self.stack.value.push(x);
       }
-      self.yield_value_list(into, xs.len())
+      into.yield_value_list(xs.len(), self)
     }
   }
 
@@ -862,7 +850,7 @@ impl<'a> Ctx<'a> {
   fn compile_block<I: IntoWhat>(&mut self, stmt_list: &[Stmt<'a>], into: I) -> I::What {
     match stmt_list.split_last() {
       None => {
-        self.yield_value_list(into, 0)
+        into.yield_value_list(0, self)
       }
       Some((y, xs)) => {
         self.scope.enter();
