@@ -37,13 +37,9 @@ enum Priority {
   ShortCircuitOr,
   ShortCircuitAnd,
   Cmp,
-  BitOr,
-  BitXor,
-  BitAnd,
-  Shift,
   Add,
   Mul,
-  Prefix,
+  Unary,
 }
 
 fn next<'a, 'b>(source: &'b [(Token, bool, &'a [u8])]) -> ((Token, bool, &'a [u8]), &'b [(Token, bool, &'a [u8])]) {
@@ -239,14 +235,19 @@ impl<'a, 'b> Parser<'a, 'b> {
           }
         }
       }
-      Token::Hyphen => {
+      Token::BitXor => {
         self.next();
-        self.parse_expr_prec(Priority::Prefix);
+        self.parse_expr_prec(Priority::Unary);
+        self.on_op1(Op1::BitComplement);
+      }
+      Token::Sub => {
+        self.next();
+        self.parse_expr_prec(Priority::Unary);
         self.on_op1(Op1::Neg);
       }
       Token::Not => {
         self.next();
-        self.parse_expr_prec(Priority::Prefix);
+        self.parse_expr_prec(Priority::Unary);
         self.on_op1(Op1::Not);
       }
       Token::If => {
@@ -321,29 +322,29 @@ impl<'a, 'b> Parser<'a, 'b> {
           self.parse_expr_prec(Priority::Cmp);
           self.on_op2(Op2::CmpNe);
         }
-        Token::BitOr if p < Priority::BitOr => {
+        Token::BitOr if p < Priority::Add => {
           self.next();
-          self.parse_expr_prec(Priority::BitOr);
+          self.parse_expr_prec(Priority::Add);
           self.on_op2(Op2::BitOr);
         }
-        Token::BitXor if p < Priority::BitXor => {
+        Token::BitXor if p < Priority::Add => {
           self.next();
-          self.parse_expr_prec(Priority::BitXor);
+          self.parse_expr_prec(Priority::Add);
           self.on_op2(Op2::BitXor);
         }
-        Token::BitAnd if p < Priority::BitAnd => {
+        Token::BitAnd if p < Priority::Mul => {
           self.next();
-          self.parse_expr_prec(Priority::BitAnd);
+          self.parse_expr_prec(Priority::Mul);
           self.on_op2(Op2::BitAnd);
         }
-        Token::Shl if p < Priority::Shift => {
+        Token::Shl if p < Priority::Mul => {
           self.next();
-          self.parse_expr_prec(Priority::Shift);
+          self.parse_expr_prec(Priority::Mul);
           self.on_op2(Op2::Shl);
         }
-        Token::Shr if p < Priority::Shift => {
+        Token::Shr if p < Priority::Mul => {
           self.next();
-          self.parse_expr_prec(Priority::Shift);
+          self.parse_expr_prec(Priority::Mul);
           self.on_op2(Op2::Shr);
         }
         Token::Add if p < Priority::Add => {
@@ -351,7 +352,7 @@ impl<'a, 'b> Parser<'a, 'b> {
           self.parse_expr_prec(Priority::Add);
           self.on_op2(Op2::Add);
         }
-        Token::Hyphen if p < Priority::Add => {
+        Token::Sub if p < Priority::Add => {
           self.next();
           self.parse_expr_prec(Priority::Add);
           self.on_op2(Op2::Sub);

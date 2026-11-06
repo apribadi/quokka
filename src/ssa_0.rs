@@ -9,7 +9,7 @@ type Local = usize;
 type Value = usize;
 
 pub struct Module {
-  pub fun_defs: Box<[FunDef]>,
+  pub funs: Box<[FunDef]>,
   pub code: Box<[Inst]>,
 }
 
@@ -48,6 +48,7 @@ pub enum Inst {
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[derive(Debug)]
 pub enum Op1 {
+  BitComplement,
   Neg,
   Not,
 }
@@ -80,6 +81,7 @@ pub enum Op2 {
 impl std::fmt::Display for Op1 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
+      Self::BitComplement => write!(f, "^"),
       Self::Neg => write!(f, "-"),
       Self::Not => write!(f, "!"),
     }
@@ -131,6 +133,56 @@ impl std::fmt::Display for Inst {
       Self::Ret => write!(f, "RET"),
       Self::Fail => write!(f, "==> FAIL"),
 
+    }
+  }
+}
+
+impl Inst {
+  pub fn remap<F: Fn(usize) -> usize>(self, f: F) -> Self {
+    match self {
+      Self::Label(m, n) => Self::Label(m, n),
+      Self::Pop(_) => self,
+      Self::Put(i, x) => Self::Put(i, f(x)),
+      Self::Const(_) => self,
+      Self::ConstBool(_) => self,
+      Self::ConstI64(_) => self,
+      Self::DefLocal(v) => Self::DefLocal(f(v)),
+      Self::GetLocal(v) => Self::GetLocal(f(v)),
+      Self::SetLocal(v, x) => Self::SetLocal(f(v), f(x)),
+      Self::GetField(x, s) => Self::GetField(f(x), s),
+      Self::SetField(x, s, y) => Self::SetField(f(x), s, f(y)),
+      Self::GetIndex(x, y) => Self::GetIndex(f(x), f(y)),
+      Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
+      Self::Op1(op, x) => Self::Op1(op, f(x)),
+      Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
+      Self::Call(x) => Self::Call(f(x)),
+      Self::TailCall(x) => Self::TailCall(f(x)),
+      Self::Cond(x) => Self::Cond(f(x)),
+      Self::Goto(a) => Self::Goto(f(a)),
+      Self::Ret => self,
+      Self::Fail => self,
+    }
+  }
+
+  /*
+  pub fn is_terminal(&self) -> Option<usize> {
+    match *self {
+      Self::Fail | Self::TailCall(..) | Self::Ret => Some(0),
+      Self::Goto(..) | Self::Call(..) => Some(1),
+      Self::Cond(..) => Some(2),
+      _ => None,
+    }
+  }
+  */
+  pub fn is_terminal(&self) -> bool {
+    match *self {
+      Self::Fail
+      | Self::TailCall(..)
+      | Self::Ret
+      | Self::Goto(..)
+      | Self::Call(..)
+      | Self::Cond(..) => true,
+      _ => false,
     }
   }
 }

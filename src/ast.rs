@@ -56,6 +56,7 @@ pub struct Bind<'a> {
 #[derive(Clone, Copy)]
 #[derive(Debug)]
 pub enum Op1 {
+  BitComplement, // ^ a
   Neg, // - a
   Not, // ! a
 }

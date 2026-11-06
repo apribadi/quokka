@@ -16,7 +16,7 @@ pub enum Token {
   Mul        = 0x2a, // *
   Add        = 0x2b, // +
   Comma      = 0x2c, // ,
-  Hyphen     = 0x2d, // -
+  Sub        = 0x2d, // -
   Dot        = 0x2e, // .
   Div        = 0x2f, // /
   Colon      = 0x3a, // :

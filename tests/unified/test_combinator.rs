@@ -19,6 +19,14 @@ fn test_id() {
       %1 = POP 0
       %2 PUT 0 %1
       %3 RET
+
+      SIMPLIFIED
+
+      === fun id ===
+      %0 LABEL 1 1
+      %1 = POP 0
+      %2 PUT 0 %1
+      %3 RET
   "#]].assert_eq(out.drain(..).as_ref());
 }
 
@@ -91,6 +99,63 @@ fn test_apply() {
       %44 PUT 1 %41
       %45 PUT 2 %39
       %46 TAIL-CALL %42
+
+      SIMPLIFIED
+
+      === fun app1 ===
+      %0 LABEL 2 1
+      %1 = POP 0
+      %2 = POP 1
+      %3 PUT 0 %2
+      %4 TAIL-CALL %1
+      === fun app2 ===
+      %5 LABEL 3 2
+      %6 = POP 0
+      %7 = POP 1
+      %8 = POP 2
+      %9 PUT 0 %7
+      %10 PUT 1 %8
+      %11 TAIL-CALL %6
+      === fun id ===
+      %12 LABEL 1 1
+      %13 = POP 0
+      %14 PUT 0 %13
+      %15 RET
+      === fun flip ===
+      %16 LABEL 2 2
+      %17 = POP 0
+      %18 = POP 1
+      %19 PUT 0 %18
+      %20 PUT 1 %17
+      %21 RET
+      === fun foo ===
+      %22 LABEL 1 2
+      %23 = POP 0
+      %24 = CONST id
+      %25 = CONST app1
+      %26 PUT 0 %24
+      %27 PUT 1 %23
+      %28 TAIL-CALL %25
+      === fun bar ===
+      %29 LABEL 2 3
+      %30 = POP 0
+      %31 = POP 1
+      %32 = CONST flip
+      %33 = CONST app2
+      %34 PUT 0 %32
+      %35 PUT 1 %30
+      %36 PUT 2 %31
+      %37 TAIL-CALL %33
+      === fun baz ===
+      %38 LABEL 1 3
+      %39 = POP 0
+      %40 = CONST app1
+      %41 = CONST id
+      %42 = CONST app2
+      %43 PUT 0 %40
+      %44 PUT 1 %41
+      %45 PUT 2 %39
+      %46 TAIL-CALL %42
   "#]].assert_eq(out.drain(..).as_ref());
 }
 
@@ -105,6 +170,23 @@ fn test_select() {
   ");
 
   expect![[r#"
+      === fun select ===
+      %0 LABEL 3 0
+      %1 = POP 0
+      %2 = POP 1
+      %3 = POP 2
+      %4 COND %1
+      %5 ==> GOTO %7
+      %6 ==> GOTO %10
+      %7 LABEL 0 1
+      %8 PUT 0 %3
+      %9 RET
+      %10 LABEL 0 1
+      %11 PUT 0 %2
+      %12 RET
+
+      SIMPLIFIED
+
       === fun select ===
       %0 LABEL 3 0
       %1 = POP 0

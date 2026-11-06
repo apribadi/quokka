@@ -30,11 +30,11 @@ pub fn compile<'a>(item_list: &[ast::Item<'a>]) -> ssa::Module {
     ctx.compile_block_tail(&f.body);
     ctx.scope.leave();
     let len = ctx.out.code.len() - pos;
-    ctx.out.fun_defs.push(ssa::FunDef { name, pos, len });
+    ctx.out.funs.push(ssa::FunDef { name, pos, len });
   }
 
   ssa::Module {
-    fun_defs: ctx.out.fun_defs.into_boxed_slice(),
+    funs: ctx.out.funs.into_boxed_slice(),
     code: ctx.out.code.into_boxed_slice(),
   }
 }
@@ -94,7 +94,7 @@ struct ScopeCtx<'a> {
 
 struct Out {
   block_label: usize,
-  fun_defs: Vec<ssa::FunDef>,
+  funs: Vec<ssa::FunDef>,
   code: Vec<ssa::Inst>,
 }
 
@@ -317,9 +317,7 @@ impl<'a> ScopeCtx<'a> {
 
 impl Out {
   fn emit(&mut self, inst: Inst) -> usize {
-    let i = self.code.len();
-    self.code.push(inst);
-    i
+    self.code.emit(inst)
   }
 
   fn emit_point(&mut self, arity: usize) -> Point {
@@ -362,6 +360,7 @@ impl Out {
   fn emit_op1(&mut self, op: ast::Op1, x: Value) -> Value {
     let op =
       match op {
+        ast::Op1::BitComplement => ssa::Op1::BitComplement,
         ast::Op1::Neg => ssa::Op1::Neg,
         ast::Op1::Not => ssa::Op1::Not,
       };
@@ -420,7 +419,7 @@ impl<'a> Ctx<'a> {
       symbol_table: SymbolTable::new(),
       out: Out {
         block_label: 0,
-        fun_defs: Vec::new(),
+        funs: Vec::new(),
         code: Vec::new(),
       },
     }

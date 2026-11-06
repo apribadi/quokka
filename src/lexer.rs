@@ -180,11 +180,12 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b">>" => Token::Shr,
         b"+=" => Token::AddEqual,
         b"-=" => Token::SubEqual,
+        b"&&" => Token::ShortCircuitAnd,
+        b"||" => Token::ShortCircuitOr,
         _ => Token::Error,
       },
     A | L =>
       match span {
-        b"and" => Token::ShortCircuitAnd,
         b"break" => Token::Break,
         b"continue" => Token::Continue,
         b"do" => Token::Do,
@@ -197,7 +198,6 @@ fn classify(last_state: u8, span: &[u8]) -> Token {
         b"let" => Token::Let,
         b"loop" => Token::Loop,
         b"mut" => Token::Mut,
-        b"or" => Token::ShortCircuitOr,
         b"return" => Token::Return,
         b"true" => Token::True,
         b"while" => Token::While,
@@ -309,14 +309,14 @@ fun fib(n) {
       "fib" Symbol false
       "(" LParen true
       "n" Symbol true
-      "-" Hyphen false
+      "-" Sub false
       "1" Int false
       ")" RParen true
       "+" Add false
       "fib" Symbol false
       "(" LParen true
       "n" Symbol true
-      "-" Hyphen false
+      "-" Sub false
       "2" Int false
       ")" RParen true
       "}" RBrace false
