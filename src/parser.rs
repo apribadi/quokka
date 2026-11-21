@@ -8,10 +8,12 @@ use crate::ast::Op2;
 use crate::ast::Stmt;
 use crate::lexer::scan;
 use crate::token::Token;
+use crate::symbol::Symbol;
+use crate::symbol::SymbolTable;
 
 // TODO: consider defining a token immediately following a "}" as never attached
 
-pub fn parse<'a>(source: &'a [u8]) -> Box<[Item<'a>]> {
+pub fn parse(source: &[u8]) -> Box<[Item]> {
   let source = scan(source);
   let mut t = Parser::new(&source);
   t.parse_item_list();
@@ -24,16 +26,16 @@ struct Parser<'a, 'b> {
   token: Token,
   token_is_attached: bool,
   token_span: &'a [u8],
-  items: Vec<Item<'a>>,
-  binds: Vec<Bind<'a>>,
-  exprs: Vec<Expr<'a>>,
-  stmts: Vec<Stmt<'a>>,
+  items: Vec<Item>,
+  binds: Vec<Bind>,
+  exprs: Vec<Expr>,
+  stmts: Vec<Stmt>,
+  symbol_table: SymbolTable,
 }
 
 #[derive(Eq, Ord, PartialEq, PartialOrd)]
 enum Priority {
   Any,
-  Select,
   ShortCircuitOr,
   ShortCircuitAnd,
   Cmp,
@@ -42,7 +44,9 @@ enum Priority {
   Unary,
 }
 
-fn next<'a, 'b>(source: &'b [(Token, bool, &'a [u8])]) -> ((Token, bool, &'a [u8]), &'b [(Token, bool, &'a [u8])]) {
+fn next<'a, 'b>(source: &'b [(Token, bool, &'a [u8])])
+  -> ((Token, bool, &'a [u8]), &'b [(Token, bool, &'a [u8])])
+{
   match source.split_first() {
     None => ((Token::Eof, false, &[]), &[]),
     Some((&(x, y, z), source)) => ((x, y, z), source),
@@ -62,6 +66,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       binds: Vec::new(),
       exprs: Vec::new(),
       stmts: Vec::new(),
+      symbol_table: SymbolTable::new(),
     }
   }
 
@@ -90,6 +95,10 @@ impl<'a, 'b> Parser<'a, 'b> {
     str::from_utf8(self.token_span).unwrap()
   }
 
+  fn token_symbol(&mut self) -> Symbol {
+    self.symbol_table.intern(self.token_str())
+  }
+
   fn expect(&mut self, token: Token) {
     if self.token() != token {
       self.on_error_missing_expected_token(token);
@@ -98,21 +107,21 @@ impl<'a, 'b> Parser<'a, 'b> {
     }
   }
 
-  fn parse_path_segment(&mut self) -> &'a str {
+  fn parse_path_segment(&mut self) -> Symbol {
     if self.token() == Token::Symbol && self.token_is_attached() {
-      let s = self.token_str();
+      let s = self.token_symbol();
       self.next();
       s
     } else {
       self.on_error_missing_expected_token(Token::Symbol); // log expected attachment ??
-      ""
+      self.symbol_table.intern("_")
     }
   }
 
-  fn parse_name(&mut self) -> Option<&'a str> {
+  fn parse_name(&mut self) -> Option<Symbol> {
     match self.token() {
       Token::Symbol => {
-        let s = self.token_str();
+        let s = self.token_symbol();
         self.next();
         Some(s)
       }
@@ -209,7 +218,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.on_literal_int(value);
       }
       Token::Symbol => {
-        let symbol = self.token_str();
+        let symbol = self.token_symbol();
         self.next();
         match self.token() {
           Token::Equal if is_stmt => {
@@ -274,14 +283,6 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     loop {
       match self.token() {
-        Token::Query if p <= Priority::Select => {
-          // TODO: use different tokens
-          self.next();
-          self.parse_expr();
-          self.expect(Token::Colon);
-          self.parse_expr_prec(Priority::Select);
-          self.on_select();
-        }
         Token::ShortCircuitOr if p <= Priority::ShortCircuitOr => {
           self.next();
           self.parse_expr_prec(Priority::ShortCircuitOr);
@@ -515,49 +516,49 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   // ------- PARSER OUTPUT TO AST -------
 
-  fn push_item(&mut self, x: Item<'a>) {
+  fn push_item(&mut self, x: Item) {
     self.items.push(x);
   }
 
-  fn push_bind(&mut self, x: Bind<'a>) {
+  fn push_bind(&mut self, x: Bind) {
     self.binds.push(x);
   }
 
-  fn pop_bind_list(&mut self, n: usize) -> Box<[Bind<'a>]> {
+  fn pop_bind_list(&mut self, n: usize) -> Box<[Bind]> {
     self.binds.pop_list(n).collect()
   }
 
-  fn push_expr(&mut self, x: Expr<'a>) {
+  fn push_expr(&mut self, x: Expr) {
     self.exprs.push(x);
   }
 
-  fn pop_expr(&mut self) -> Expr<'a> {
+  fn pop_expr(&mut self) -> Expr {
     self.exprs.pop().unwrap()
   }
 
-  fn pop_expr_list(&mut self, n: usize) -> Box<[Expr<'a>]> {
+  fn pop_expr_list(&mut self, n: usize) -> Box<[Expr]> {
     self.exprs.pop_list(n).collect()
   }
 
-  fn push_stmt(&mut self, x: Stmt<'a>) {
+  fn push_stmt(&mut self, x: Stmt) {
     self.stmts.push(x);
   }
 
-  fn pop_stmt_list(&mut self, n: usize) -> Box<[Stmt<'a>]> {
+  fn pop_stmt_list(&mut self, n: usize) -> Box<[Stmt]> {
     self.stmts.pop_list(n).collect()
   }
 
-  fn on_fun(&mut self, name: Option<&'a str>, n_args: usize, n_stmts: usize) {
+  fn on_fun(&mut self, name: Option<Symbol>, n_args: usize, n_stmts: usize) {
     let z = self.pop_stmt_list(n_stmts);
     let y = self.pop_bind_list(n_args);
     self.push_item(Item::Fun(Box::new(Fun { name, args: y, body: z })));
   }
 
-  fn on_bind(&mut self, name: Option<&'a str>) {
+  fn on_bind(&mut self, name: Option<Symbol>) {
     self.push_bind(Bind { name });
   }
 
-  fn on_variable(&mut self, symbol: &'a str) {
+  fn on_variable(&mut self, symbol: Symbol) {
     self.push_expr(Expr::Variable(symbol));
   }
 
@@ -565,7 +566,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_expr(Expr::LiteralBool(value));
   }
 
-  fn on_literal_int(&mut self, x: &'a str) {
+  fn on_literal_int(&mut self, x: &str) {
     let n =
       match i64::from_str_radix(x, 10) {
         Err(_) => {
@@ -575,13 +576,6 @@ impl<'a, 'b> Parser<'a, 'b> {
         Ok(n) => n
       };
     self.push_expr(Expr::LiteralI64(n));
-  }
-
-  fn on_select(&mut self) {
-    let y = self.pop_expr();
-    let x = self.pop_expr();
-    let p = self.pop_expr();
-    self.push_expr(Expr::Select(Box::new((p, x, y))));
   }
 
   fn on_short_circuit_or(&mut self) {
@@ -607,7 +601,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_expr(Expr::Op2(Box::new((op, x, y))));
   }
 
-  fn on_get_field(&mut self, symbol: &'a str) {
+  fn on_get_field(&mut self, symbol: Symbol) {
     let x = self.pop_expr();
     self.push_expr(Expr::GetField(Box::new((x, symbol))));
   }
@@ -667,17 +661,17 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::Ret(x));
   }
 
-  fn on_set_local(&mut self, symbol: &'a str) {
+  fn on_set_local(&mut self, symbol: Symbol) {
     let x = self.pop_expr();
     self.push_stmt(Stmt::SetLocal(symbol, x));
   }
 
-  fn on_set_local_compound(&mut self, symbol: &'a str, op: Op2) {
+  fn on_set_local_compound(&mut self, symbol: Symbol, op: Op2) {
     let x = self.pop_expr();
     self.push_stmt(Stmt::SetLocalCompound(symbol, op, x));
   }
 
-  fn on_set_field(&mut self, symbol: &'a str) {
+  fn on_set_field(&mut self, symbol: Symbol) {
     let y = self.pop_expr();
     let x = self.pop_expr();
     self.push_stmt(Stmt::SetField(x, symbol, y));
@@ -690,7 +684,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::SetIndex(x, y, z));
   }
 
-  fn on_let_mut(&mut self, name: Option<&'a str>) {
+  fn on_let_mut(&mut self, name: Option<Symbol>) {
     let x = self.pop_expr();
     self.push_stmt(Stmt::DefLocal(name, x));
   }

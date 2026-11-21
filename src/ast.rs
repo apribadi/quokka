@@ -1,56 +1,55 @@
-type Symbol<'a> = &'a str;
+use crate::symbol::Symbol;
 
 #[derive(Debug)]
-pub enum Item<'a> {
-  Fun(Box<Fun<'a>>),
+pub enum Item {
+  Fun(Box<Fun>),
 }
 
 #[derive(Debug)]
-pub struct Fun<'a> {
-  pub name: Option<Symbol<'a>>,
-  pub args: Box<[Bind<'a>]>,
-  pub body: Box<[Stmt<'a>]>,
+pub struct Fun {
+  pub name: Option<Symbol>,
+  pub args: Box<[Bind]>,
+  pub body: Box<[Stmt]>,
 }
 
 #[derive(Debug)]
-pub enum Stmt<'a> {
-  ExprList(Box<[Expr<'a>]>),                   // a, b
-  Let(Box<[Bind<'a>]>, Box<[Expr<'a>]>),       // let x, y = a, b
-  DefLocal(Option<Symbol<'a>>, Expr<'a>),      // let mutable x = a
-  SetLocal(Symbol<'a>, Expr<'a>),              // x = 1
-  SetField(Expr<'a>, Symbol<'a>, Expr<'a>),    // a.foo = 1
-  SetIndex(Expr<'a>, Expr<'a>, Expr<'a>),      // a[b] = c
-  SetLocalCompound(Symbol<'a>, Op2, Expr<'a>), // x += a
-  Break(Box<[Expr<'a>]>),                      // break a, b
-  While(Expr<'a>, Box<[Stmt<'a>]>),            // while (a) { ... }
-  Continue,                                    // continue
-  Ret(Box<[Expr<'a>]>),                        // return a, b
+pub enum Stmt {
+  ExprList(Box<[Expr]>),               // a, b
+  Let(Box<[Bind]>, Box<[Expr]>),       // let x, y = a, b
+  DefLocal(Option<Symbol>, Expr),      // let mutable x = a
+  SetLocal(Symbol, Expr),              // x = 1
+  SetField(Expr, Symbol, Expr),        // a.foo = 1
+  SetIndex(Expr, Expr, Expr),          // a[b] = c
+  SetLocalCompound(Symbol, Op2, Expr), // x += a
+  Break(Box<[Expr]>),                  // break a, b
+  While(Expr, Box<[Stmt]>),            // while (a) { ... }
+  Continue,                            // continue
+  Ret(Box<[Expr]>),                    // return a, b
 }
 
 #[derive(Debug)]
-pub enum Expr<'a> {
-  LiteralBool(bool),                                         // true OR false
-  LiteralI64(i64),                                           // 3
-  GetField(Box<(Expr<'a>, Symbol<'a>)>),                     // a.foo
-  GetIndex(Box<(Expr<'a>, Expr<'a>)>),                       // a[b]
-  If(Box<(Expr<'a>, Box<[Stmt<'a>]>)>),                      // if (a) { ... }
-  IfElse(Box<(Expr<'a>, Box<[Stmt<'a>]>, Box<[Stmt<'a>]>)>), // if (a) { ... } else { ... }
-  Op1(Box<(Op1, Expr<'a>)>),                                 // - a
-  Op2(Box<(Op2, Expr<'a>, Expr<'a>)>),                       // a + b
-  Select(Box<(Expr<'a>, Expr<'a>, Expr<'a>)>),               // a ? b : c
-  ShortCircuitAnd(Box<(Expr<'a>, Expr<'a>)>),                // a && b
-  ShortCircuitOr(Box<(Expr<'a>, Expr<'a>)>),                 // a || b
-  Variable(Symbol<'a>),                                      // x
-  Call(Box<(Expr<'a>, Box<[Expr<'a>]>)>),                    // a(b, c)
-  Loop(Box<[Stmt<'a>]>),                                     // loop { ... }
+pub enum Expr {
+  LiteralBool(bool),                             // true OR false
+  LiteralI64(i64),                               // 3
+  GetField(Box<(Expr, Symbol)>),                 // a.foo
+  GetIndex(Box<(Expr, Expr)>),                   // a[b]
+  If(Box<(Expr, Box<[Stmt]>)>),                  // if (a) { ... }
+  IfElse(Box<(Expr, Box<[Stmt]>, Box<[Stmt]>)>), // if (a) { ... } else { ... }
+  Op1(Box<(Op1, Expr)>),                         // - a
+  Op2(Box<(Op2, Expr, Expr)>),                   // a + b
+  ShortCircuitAnd(Box<(Expr, Expr)>),            // a && b
+  ShortCircuitOr(Box<(Expr, Expr)>),             // a || b
+  Variable(Symbol),                              // x
+  Call(Box<(Expr, Box<[Expr]>)>),                // a(b, c)
+  Loop(Box<[Stmt]>),                             // loop { ... }
   Fail,
 }
 
 // TODO: add optional type ascription
 
 #[derive(Debug)]
-pub struct Bind<'a> {
-  pub name: Option<Symbol<'a>>,
+pub struct Bind {
+  pub name: Option<Symbol>,
 }
 
 #[derive(Clone, Copy)]

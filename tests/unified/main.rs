@@ -7,5 +7,5 @@ mod test_dead_code;
 mod test_fib;
 mod test_loop;
 mod test_projection;
-mod test_select;
+mod test_lexer;
 mod util;
