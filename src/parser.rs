@@ -261,7 +261,9 @@ impl<'a, 'b> Parser<'a, 'b> {
       }
       Token::If => {
         self.next();
+        self.expect(Token::LParen);
         self.parse_expr();
+        self.expect(Token::RParen);
         let n = self.parse_block();
         if self.token() == Token::Else {
           self.next();
@@ -475,7 +477,9 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Token::While => {
           self.next();
+          self.expect(Token::LParen);
           self.parse_expr();
+          self.expect(Token::RParen);
           let n = self.parse_block();
           self.on_while(n);
           n_stmts += 1;

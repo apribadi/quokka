@@ -9,7 +9,7 @@ fn test_dead_code() {
 
   test(&mut out, "
     fun foo(p) {
-      if p {
+      if (p) {
         return 1
       } else {
         return 2

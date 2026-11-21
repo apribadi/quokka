@@ -13,7 +13,7 @@ fn test_fib_loop() {
       let mut b = 0
       let mut n = n
       loop {
-        if n == 0 { return b }
+        if (n == 0) { return b }
         let c = a + b
         a = b
         b = c
@@ -102,7 +102,7 @@ fn test_fib_while() {
       let mut a = 1
       let mut b = 0
       let mut n = n
-      while n != 0 {
+      while (n != 0) {
         let c = a + b
         a = b
         b = c
@@ -191,7 +191,7 @@ fn test_fib_tailcall() {
 
   test(&mut out, "
     fun aux(a, b, n) {
-      if n == 0 {
+      if (n == 0) {
         b
       } else {
         aux(b, a + b, n - 1)
