@@ -1,13 +1,13 @@
 #![allow(unused_must_use)]
 
-use crate::util::dump;
+use crate::util::test;
 use expect_test::expect;
 
 #[test]
 fn test_dead_code() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun foo(p) {
       if p {
         return 1

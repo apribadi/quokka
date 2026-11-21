@@ -1,13 +1,13 @@
 #![allow(unused_must_use)]
 
-use crate::util::dump;
+use crate::util::test;
 use expect_test::expect;
 
 #[test]
 fn test_projection() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun foo(x) {
       x.a.b[1].c(2, 3)
     }

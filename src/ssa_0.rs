@@ -138,14 +138,14 @@ impl std::fmt::Display for Inst {
 }
 
 impl Inst {
-  pub fn remap<F: Fn(usize) -> usize>(self, f: F) -> Self {
-    match self {
+  pub fn remap<F: Fn(usize) -> usize>(&self, f: F) -> Self {
+    match *self {
       Self::Label(m, n) => Self::Label(m, n),
-      Self::Pop(_) => self,
+      Self::Pop(_) => *self,
       Self::Put(i, x) => Self::Put(i, f(x)),
-      Self::Const(_) => self,
-      Self::ConstBool(_) => self,
-      Self::ConstI64(_) => self,
+      Self::Const(_) => *self,
+      Self::ConstBool(_) => *self,
+      Self::ConstI64(_) => *self,
       Self::DefLocal(v) => Self::DefLocal(f(v)),
       Self::GetLocal(v) => Self::GetLocal(f(v)),
       Self::SetLocal(v, x) => Self::SetLocal(f(v), f(x)),
@@ -159,21 +159,11 @@ impl Inst {
       Self::TailCall(x) => Self::TailCall(f(x)),
       Self::Cond(x) => Self::Cond(f(x)),
       Self::Goto(a) => Self::Goto(f(a)),
-      Self::Ret => self,
-      Self::Fail => self,
+      Self::Ret => *self,
+      Self::Fail => *self,
     }
   }
 
-  /*
-  pub fn is_terminal(&self) -> Option<usize> {
-    match *self {
-      Self::Fail | Self::TailCall(..) | Self::Ret => Some(0),
-      Self::Goto(..) | Self::Call(..) => Some(1),
-      Self::Cond(..) => Some(2),
-      _ => None,
-    }
-  }
-  */
   pub fn is_terminal(&self) -> bool {
     match *self {
       Self::Fail
@@ -184,5 +174,38 @@ impl Inst {
       | Self::Cond(..) => true,
       _ => false,
     }
+  }
+}
+
+struct BBInstIter<'a> {
+  code: &'a [Inst],
+  start: usize,
+  index: usize,
+}
+
+pub fn bb_inst_iter<'a>(code: &'a [Inst], index: usize) -> impl Iterator<Item = (usize, &'a Inst)> {
+  BBInstIter {
+    code,
+    start: index,
+    index: index,
+  }
+}
+
+impl<'a> Iterator for BBInstIter<'a> {
+  type Item = (usize, &'a Inst);
+
+  fn next(&mut self) -> Option<Self::Item> {
+    let i = self.index;
+    if i != self.start {
+      if i < self.code.len() {
+        if let Inst::Label(..) = self.code[i] {
+          return None;
+        }
+      } else {
+        return None;
+      }
+    }
+    self.index += 1;
+    Some((i, &self.code[i]))
   }
 }

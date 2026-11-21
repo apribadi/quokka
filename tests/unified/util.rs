@@ -1,25 +1,13 @@
-/*
-pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
-  let module = quokka::parser::parse(source.as_bytes());
-  write!(out, "{:#?}\n", module);
-}
-
-*/
-
-pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
+pub(crate) fn test(out: &mut impl std::fmt::Write, source: &str) {
   let module = quokka::parser::parse(source.as_bytes());
   let module = quokka::compile_0::compile(&module);
-  for f in module.funs.iter() {
-    if let Some(s) = f.name {
-      write!(out, "=== fun {} ===\n", s);
-      for i in f.pos .. f.pos + f.len {
-        let inst = module.code[i];
-        write!(out, "%{} {}\n", i, inst);
-      }
-    }
-  }
+  dump(out, &module);
   write!(out, "\nSIMPLIFIED\n\n");
   let module = quokka::simplify_0::simplify(&module);
+  dump(out, &module);
+}
+
+fn dump(out: &mut impl std::fmt::Write, module: &quokka::ssa_0::Module) {
   for f in module.funs.iter() {
     if let Some(s) = f.name {
       write!(out, "=== fun {} ===\n", s);
@@ -65,3 +53,11 @@ pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
       }
     }
     */
+
+/*
+pub(crate) fn dump(out: &mut impl std::fmt::Write, source: &str) {
+  let module = quokka::parser::parse(source.as_bytes());
+  write!(out, "{:#?}\n", module);
+}
+*/
+

@@ -1,13 +1,13 @@
 #![allow(unused_must_use)]
 
-use crate::util::dump;
+use crate::util::test;
 use expect_test::expect;
 
 #[test]
 fn test_fib_loop() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun fib(n) {
       let mut a = 1
       let mut b = 0
@@ -97,7 +97,7 @@ fn test_fib_loop() {
 fn test_fib_while() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun fib(n) {
       let mut a = 1
       let mut b = 0
@@ -189,7 +189,7 @@ fn test_fib_while() {
 fn test_fib_tailcall() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun aux(a, b, n) {
       if n == 0 {
         b

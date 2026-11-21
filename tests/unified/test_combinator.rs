@@ -1,13 +1,13 @@
 #![allow(unused_must_use)]
 
-use crate::util::dump;
+use crate::util::test;
 use expect_test::expect;
 
 #[test]
 fn test_id() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun id(x) {
       x
     }
@@ -34,7 +34,7 @@ fn test_id() {
 fn test_apply() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun app1(f, x) { f(x) }
     fun app2(f, x, y) { f(x, y) }
     fun id(x) { x }
@@ -156,50 +156,5 @@ fn test_apply() {
       %44 PUT 1 %41
       %45 PUT 2 %39
       %46 TAIL-CALL %42
-  "#]].assert_eq(out.drain(..).as_ref());
-}
-
-#[test]
-fn test_select() {
-  let mut out = String::new();
-
-  dump(&mut out, "
-    fun select(x, y, z) {
-      x ? y : z
-    }
-  ");
-
-  expect![[r#"
-      === fun select ===
-      %0 LABEL 3 0
-      %1 = POP 0
-      %2 = POP 1
-      %3 = POP 2
-      %4 COND %1
-      %5 ==> GOTO %7
-      %6 ==> GOTO %10
-      %7 LABEL 0 1
-      %8 PUT 0 %3
-      %9 RET
-      %10 LABEL 0 1
-      %11 PUT 0 %2
-      %12 RET
-
-      SIMPLIFIED
-
-      === fun select ===
-      %0 LABEL 3 0
-      %1 = POP 0
-      %2 = POP 1
-      %3 = POP 2
-      %4 COND %1
-      %5 ==> GOTO %7
-      %6 ==> GOTO %10
-      %7 LABEL 0 1
-      %8 PUT 0 %3
-      %9 RET
-      %10 LABEL 0 1
-      %11 PUT 0 %2
-      %12 RET
   "#]].assert_eq(out.drain(..).as_ref());
 }

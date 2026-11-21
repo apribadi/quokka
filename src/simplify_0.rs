@@ -2,13 +2,13 @@
 //!
 //!
 
-#![allow(warnings)]
+// #![allow(warnings)]
 
 use crate::prelude::*;
-use crate::ssa_0 as ssa;
 use crate::ssa_0::Inst;
 use crate::ssa_0::FunDef;
 use crate::ssa_0::Module;
+use crate::ssa_0::bb_inst_iter;
 
 pub fn simplify(module: &Module) -> Module {
   let Module { funs, code } = module;
@@ -18,39 +18,27 @@ pub fn simplify(module: &Module) -> Module {
   let mut o_code = Vec::new();
   let mut o_funs = Vec::new();
   for f in funs.iter() {
-    let f_pos = f.pos;
-    let f_end = f.pos + f.len;
-    seen.insert(f_pos, 1);
-    todo.push(f_pos);
+    seen.insert(f.pos, 1);
+    todo.push(f.pos);
     while let Some(i) = todo.pop() {
-      let mut i = i + 1;
-      while i < f_end {
-        let inst = code[i];
-        if let Inst::Label(..) = inst {
-          break;
-        }
-        if let Inst::Goto(a) = inst {
+      for (_, inst) in bb_inst_iter(&code, i) {
+        if let Inst::Goto(a) = *inst {
           match seen.entry(a) {
             Vacant(e) => { e.insert(1); todo.push(a); }
             Occupied(e) => { *e.into_mut() += 1; }
           }
         }
-        i += 1;
       }
     }
-    let mut i = f_pos;
-    let mut is_output = false;
-    while i < f_end {
-      let inst = code[i];
-      if let Inst::Label(..) = inst {
-        is_output = seen.contains_key(&i);
-      }
-      if is_output {
+    let mut seen_: Vec<_> = seen.keys().cloned().collect();
+    seen_.sort();
+    for &i in seen_.iter() {
+      for (i, &inst) in bb_inst_iter(&code, i) {
         remap[i] = o_code.emit(inst);
       }
-      i += 1;
     }
-    let o_f_pos = remap[f_pos];
+    seen.clear();
+    let o_f_pos = remap[f.pos];
     let o_f_end = o_code.len();
     let o_f_len = o_f_end - o_f_pos;
     for i in o_f_pos .. o_f_end {

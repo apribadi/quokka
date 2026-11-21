@@ -1,13 +1,13 @@
 #![allow(unused_must_use)]
 
-use crate::util::dump;
+use crate::util::test;
 use expect_test::expect;
 
 #[test]
 fn test_loop() {
   let mut out = String::new();
 
-  dump(&mut out, "
+  test(&mut out, "
     fun foo() { loop { break 1 } }
     fun bar() { loop { continue } }
     fun baz() { loop { return 1 } }
