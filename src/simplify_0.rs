@@ -10,6 +10,7 @@ use crate::ssa_0::FunDef;
 use crate::ssa_0::Module;
 use crate::ssa_0::iter_block_insts;
 
+/*
 enum Mult<A> {
   None,
   Many,
@@ -20,8 +21,11 @@ struct Info {
   prev: Mult<usize>,
   next: Mult<usize>,
 }
+*/
 
 pub fn simplify(module: &Module) -> Module {
+  module.clone()
+  /*
   let Module { funs, code } = module;
   let mut remap = vec![usize::MAX; code.len()];
   let mut todo = Vec::new();
@@ -81,4 +85,5 @@ pub fn simplify(module: &Module) -> Module {
     funs: o_funs.into_boxed_slice(),
     code: o_code.into_boxed_slice(),
   }
+  */
 }

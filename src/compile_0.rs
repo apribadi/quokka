@@ -50,13 +50,16 @@ enum Referent {
 
 #[derive(Clone, Copy)]
 struct Point {
+  instp: usize,
   index: usize,
   arity: Option<usize>,
 }
 
+const DUMMY: usize = usize::MAX;
+
 #[derive(Clone, Copy)]
 struct Label {
-  index: usize,
+  instp: usize, // instruction pointer
   arity: usize,
 }
 
@@ -214,13 +217,15 @@ impl IntoWhat for IntoPointList {
 
   fn yield_value(self, value: Value, ctx: &mut Ctx) -> Self::What {
     ctx.out.emit_put_list([value]);
-    ctx.stack.point.push(ctx.out.emit_point(1));
+    let i = ctx.out.emit(Inst::Jump(DUMMY));
+    ctx.stack.point.push(Point { instp: i, index: 0, arity: Some(1) });
     1
   }
 
   fn yield_value_list(self, value_count: usize, ctx: &mut Ctx) -> Self::What {
     ctx.out.emit_put_list(ctx.stack.value.pop_list(value_count));
-    ctx.stack.point.push(ctx.out.emit_point(value_count));
+    let i = ctx.out.emit(Inst::Jump(DUMMY));
+    ctx.stack.point.push(Point { instp: i, index: 0, arity: Some(value_count) });
     1
   }
 
@@ -237,13 +242,15 @@ impl IntoWhat for IntoBackEdge {
 
   fn yield_value(self, value: Value, ctx: &mut Ctx) -> Self::What {
     ctx.out.emit_put_list([value]);
-    let p = ctx.out.emit_point(1);
+    let i = ctx.out.emit(Inst::Jump(DUMMY));
+    let p = Point { instp: i, index: 0, arity: Some(1) };
     ctx.out.patch(p, self.0);
   }
 
   fn yield_value_list(self, value_count: usize, ctx: &mut Ctx) -> Self::What {
     ctx.out.emit_put_list(ctx.stack.value.pop_list(value_count));
-    let p = ctx.out.emit_point(value_count);
+    let i = ctx.out.emit(Inst::Jump(DUMMY));
+    let p = Point { instp: i, index: 0, arity: Some(value_count) };
     ctx.out.patch(p, self.0);
   }
 
@@ -319,23 +326,41 @@ impl Out {
     self.code.emit(inst)
   }
 
+  /*
   fn emit_point(&mut self, arity: usize) -> Point {
     let i = self.emit(Inst::Goto(usize::MAX));
-    Point { index: i, arity: Some(arity) }
+    Point { instp: i, arity: Some(arity) }
   }
+  */
 
   fn emit_label(&mut self, arity: usize) -> Label {
     let i = self.emit(Inst::Label(arity, 0));
     self.block_label = i;
-    Label { index: i, arity }
+    Label { instp: i, arity }
   }
 
   fn patch(&mut self, p: Point, a: Label) {
-    debug_assert_matches!(self.code[p.index], Inst::Goto(usize::MAX));
     if let Some(n) = p.arity && n != a.arity {
-      self.code[p.index] = Inst::Fail; // arity mismatch
+      // arity mismatch
+      self.code[p.instp] = Inst::Fail;
     } else {
-      self.code[p.index] = Inst::Goto(a.index);
+      match (&mut self.code[p.instp], p.index) {
+        (&mut Inst::Fail, _) => {
+        }
+        (&mut Inst::Jump(ref mut point), 0) => {
+          *point = a.instp;
+        }
+        (&mut Inst::Cond(_, ref mut point, _), 0) => {
+          *point = a.instp;
+        }
+        (&mut Inst::Cond(_, _, ref mut point), 1) => {
+          *point = a.instp;
+        }
+        (&mut Inst::Call(_, ref mut point), 0) => {
+          *point = a.instp;
+        }
+        _ => unreachable!(),
+      }
     }
   }
 
@@ -433,9 +458,8 @@ impl Ctx {
         }
         let f = self.compile_expr(f, IntoValue); // NB: evaluated *after* args
         self.out.emit_put_list(self.stack.value.pop_list(args.len()));
-        let _ = self.out.emit(Inst::Call(f));
-        let p = self.out.emit(Inst::Goto(usize::MAX));
-        self.stack.point.push(Point { index: p, arity: None });
+        let i = self.out.emit(Inst::Call(f, DUMMY));
+        self.stack.point.push(Point { instp: i, index: 0, arity: None });
         into.yield_point_list(1, self)
       }
       Expr::Fail => {
@@ -445,9 +469,10 @@ impl Ctx {
       Expr::If(ref e) => {
         let (ref x, ref ys) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        self.stack.point.push(self.out.emit_point(0));
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
+        self.stack.point.push(p);
         let _ = self.out.emit_label_after(q, 0); // true
         let n = self.compile_block(ys, IntoPointList);
         into.yield_point_list(1 + n, self)
@@ -455,9 +480,9 @@ impl Ctx {
       Expr::IfElse(ref e) => {
         let (ref x, ref ys, ref zs) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0); // false
         let m = self.compile_block(zs, IntoPointList);
         let _ = self.out.emit_label_after(q, 0); // true
@@ -486,7 +511,7 @@ impl Ctx {
         into.yield_value(y, self)
       }
       Expr::Loop(ref xs) => {
-        let p = self.out.emit_point(0);
+        let p = Point { instp: self.out.emit(Inst::Jump(DUMMY)), index: 0, arity: Some(0) };
         let a = self.out.emit_label_after(p, 0);
         self.loops.enter(a);
         self.scope.enter();
@@ -511,13 +536,13 @@ impl Ctx {
       Expr::ShortCircuitAnd(ref e) => {
         let (ref x, ref y) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0);
         let z = self.out.emit(Inst::ConstBool(false));
         self.out.emit_put_list([z]);
-        self.stack.point.push(self.out.emit_point(1));
+        self.stack.point.push(Point { instp: self.out.emit(Inst::Jump(DUMMY)), index: 0, arity: Some(1) });
         let _ = self.out.emit_label_after(q, 0);
         let n = self.compile_expr(y, IntoPointList);
         into.yield_point_list(1 + n, self)
@@ -525,15 +550,15 @@ impl Ctx {
       Expr::ShortCircuitOr(ref e) => {
         let (ref x, ref y) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0);
         let n = self.compile_expr(y, IntoPointList);
         let _ = self.out.emit_label_after(q, 0);
         let z = self.out.emit(Inst::ConstBool(true));
         self.out.emit_put_list([z]);
-        self.stack.point.push(self.out.emit_point(1));
+        self.stack.point.push(Point { instp: self.out.emit(Inst::Jump(DUMMY)), index: 0, arity: Some(1) });
         into.yield_point_list(n + 1, self)
       }
       Expr::Variable(s) => {
@@ -569,9 +594,9 @@ impl Ctx {
       Expr::If(ref e) => {
         let (ref x, ref ys) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0); // false
         let _ = self.out.emit(Inst::Ret);
         let _ = self.out.emit_label_after(q, 0);
@@ -580,16 +605,16 @@ impl Ctx {
       Expr::IfElse(ref e) => {
         let (ref x, ref ys, ref zs) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0); // false
         self.compile_block_tail(zs);
         let _ = self.out.emit_label_after(q, 0); // true
         self.compile_block_tail(ys);
       }
       Expr::Loop(ref xs) => {
-        let p = self.out.emit_point(0);
+        let p = Point { instp: self.out.emit(Inst::Jump(DUMMY)), index: 0, arity: Some(0) };
         let a = self.out.emit_label_after(p, 0);
         self.loops.enter_tail(a);
         self.scope.enter();
@@ -600,9 +625,9 @@ impl Ctx {
       Expr::ShortCircuitAnd(ref e) => {
         let (ref x, ref y) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0);
         let z = self.out.emit(Inst::ConstBool(false));
         self.out.emit_put_list([z]);
@@ -613,9 +638,9 @@ impl Ctx {
       Expr::ShortCircuitOr(ref e) => {
         let (ref x, ref y) = **e;
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let p = self.out.emit_point(0);
-        let q = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let p = Point { instp: i, index: 0, arity: Some(0) };
+        let q = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(p, 0);
         self.compile_expr_tail(y);
         let _ = self.out.emit_label_after(q, 0);
@@ -671,7 +696,7 @@ impl Ctx {
             let _ = self.out.emit(Inst::Fail);
           }
           LoopKind::NonTail { head, .. } | LoopKind::Tail { head } => {
-            let _ = self.out.emit(Inst::Goto(head.index));
+            let _ = self.out.emit(Inst::Jump(head.instp));
           }
         }
         into.yield_point_list(0, self)
@@ -738,13 +763,14 @@ impl Ctx {
         into.yield_value_list(0, self)
       }
       Stmt::While(ref x, ref ys) => {
-        let p = self.out.emit_point(0);
+        let p = Point { instp: self.out.emit(Inst::Jump(DUMMY)), index: 0, arity: Some(0) };
         let a = self.out.emit_label_after(p, 0);
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        self.stack.point.push(self.out.emit_point(0));
-        let q = self.out.emit_point(0);
-        let _ = self.out.emit_label_after(q, 0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let q = Point { instp: i, index: 0, arity: Some(0) };
+        let r = Point { instp: i, index: 1, arity: Some(0) };
+        self.stack.point.push(q);
+        let _ = self.out.emit_label_after(r, 0);
         self.loops.enter(a);
         self.scope.enter();
         self.compile_block(ys, IntoBackEdge(a));
@@ -761,12 +787,12 @@ impl Ctx {
         self.compile_expr_list_tail(xs);
       }
       Stmt::While(ref x, ref ys) => {
-        let p = self.out.emit_point(0);
+        let p = Point { instp: self.out.emit(Inst::Jump(DUMMY)), index: 0, arity: Some(0) };
         let a = self.out.emit_label_after(p, 0);
         let x = self.compile_expr(x, IntoValue);
-        let _ = self.out.emit(Inst::Cond(x));
-        let q = self.out.emit_point(0);
-        let r = self.out.emit_point(0);
+        let i = self.out.emit(Inst::Cond(x, DUMMY, DUMMY));
+        let q = Point { instp: i, index: 0, arity: Some(0) };
+        let r = Point { instp: i, index: 1, arity: Some(0) };
         let _ = self.out.emit_label_after(q, 0);
         let _ = self.out.emit(Inst::Ret);
         let _ = self.out.emit_label_after(r, 0);

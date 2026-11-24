@@ -23,47 +23,47 @@ fn test_dead_code() {
       === fun foo ===
       %0 LABEL 1 0
       %1 = POP 0
-      %2 COND %1
-      %3 ==> GOTO %5
-      %4 ==> GOTO %9
-      %5 LABEL 0 1
-      %6 = 2
-      %7 PUT 0 %6
-      %8 RET
-      %9 LABEL 0 1
-      %10 = 1
-      %11 PUT 0 %10
-      %12 RET
-      %13 LABEL 0 1
-      %14 = 3
-      %15 PUT 0 %14
-      %16 RET
+      %2 COND %1 ==> %3 %7
+      %3 LABEL 0 1
+      %4 = 2
+      %5 PUT 0 %4
+      %6 RET
+      %7 LABEL 0 1
+      %8 = 1
+      %9 PUT 0 %8
+      %10 RET
+      %11 LABEL 0 1
+      %12 = 3
+      %13 PUT 0 %12
+      %14 RET
       === fun id ===
-      %17 LABEL 1 1
-      %18 = POP 0
-      %19 PUT 0 %18
-      %20 RET
+      %15 LABEL 1 1
+      %16 = POP 0
+      %17 PUT 0 %16
+      %18 RET
 
       SIMPLIFIED
 
       === fun foo ===
       %0 LABEL 1 0
       %1 = POP 0
-      %2 COND %1
-      %3 ==> GOTO %5
-      %4 ==> GOTO %9
-      %5 LABEL 0 1
-      %6 = 2
-      %7 PUT 0 %6
-      %8 RET
-      %9 LABEL 0 1
-      %10 = 1
-      %11 PUT 0 %10
-      %12 RET
+      %2 COND %1 ==> %3 %7
+      %3 LABEL 0 1
+      %4 = 2
+      %5 PUT 0 %4
+      %6 RET
+      %7 LABEL 0 1
+      %8 = 1
+      %9 PUT 0 %8
+      %10 RET
+      %11 LABEL 0 1
+      %12 = 3
+      %13 PUT 0 %12
+      %14 RET
       === fun id ===
-      %13 LABEL 1 1
-      %14 = POP 0
-      %15 PUT 0 %14
-      %16 RET
+      %15 LABEL 1 1
+      %16 = POP 0
+      %17 PUT 0 %16
+      %18 RET
   "#]].assert_eq(out.drain(..).as_ref());
 }

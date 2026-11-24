@@ -8,11 +8,13 @@ type Label = usize;
 type Local = usize;
 type Value = usize;
 
+#[derive(Clone)]
 pub struct Module {
   pub funs: Box<[FunDef]>,
   pub code: Box<[Inst]>,
 }
 
+#[derive(Clone)]
 pub struct FunDef {
   pub name: Option<Symbol>,
   pub pos: usize,
@@ -37,10 +39,10 @@ pub enum Inst {
   SetIndex(Value, Value, Value),
   Op1(Op1, Value),
   Op2(Op2, Value, Value),
-  Call(Value),
+  Jump(Label),
+  Cond(Value, Label, Label),
+  Call(Value, Label),
   TailCall(Value),
-  Cond(Value),
-  Goto(Label),
   Ret,
   Fail,
 }
@@ -126,10 +128,10 @@ impl std::fmt::Display for Inst {
       Self::SetIndex(x, y, z) => write!(f, "%{} [ %{} ] <- %{}", x, y, z),
       Self::Op1(op, x) => write!(f, "= {} %{}", op, x),
       Self::Op2(op, x, y) => write!(f, "= %{} {} %{}", x, op, y),
-      Self::Call(x) => write!(f, "CALL %{}", x),
+      Self::Jump(a) => write!(f, "JUMP ==> %{}", a),
+      Self::Cond(x, a, b) => write!(f, "COND %{} ==> %{} %{}", x, a, b),
+      Self::Call(x, a) => write!(f, "CALL %{} ==> %{}", x, a),
       Self::TailCall(x) => write!(f, "TAIL-CALL %{}", x),
-      Self::Cond(x) => write!(f, "COND %{}", x),
-      Self::Goto(x) => write!(f, "==> GOTO %{}", x),
       Self::Ret => write!(f, "RET"),
       Self::Fail => write!(f, "==> FAIL"),
 
@@ -155,10 +157,10 @@ impl Inst {
       Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
       Self::Op1(op, x) => Self::Op1(op, f(x)),
       Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
-      Self::Call(x) => Self::Call(f(x)),
+      Self::Jump(a) => Self::Jump(f(a)),
+      Self::Cond(x, a, b) => Self::Cond(f(x), f(a), f(b)),
+      Self::Call(x, a) => Self::Call(f(x), f(a)),
       Self::TailCall(x) => Self::TailCall(f(x)),
-      Self::Cond(x) => Self::Cond(f(x)),
-      Self::Goto(a) => Self::Goto(f(a)),
       Self::Ret => *self,
       Self::Fail => *self,
     }
@@ -166,12 +168,12 @@ impl Inst {
 
   pub fn is_terminal(&self) -> bool {
     match *self {
-      Self::Fail
+      | Self::Jump(..)
+      | Self::Cond(..)
+      | Self::Call(..)
       | Self::TailCall(..)
       | Self::Ret
-      | Self::Goto(..)
-      | Self::Call(..)
-      | Self::Cond(..) => true,
+      | Self::Fail => true,
       _ => false,
     }
   }
