@@ -43,9 +43,9 @@ fn mark(ctx: &mut Ctx, a: usize, b: usize, is_jump: bool) {
 
 pub fn simplify(module: &Module) -> Module {
   let Module { funs, code } = module;
-  let mut remap = vec![usize::MAX; code.len()];
   let mut o_code = Vec::new();
   let mut o_funs = Vec::new();
+  let mut remap = vec![usize::MAX; code.len()];
   let mut ctx =
     Ctx {
       todo: Vec::new(),
@@ -63,11 +63,11 @@ pub fn simplify(module: &Module) -> Module {
             mark(&mut ctx, i, a, true);
           }
           &Inst::Cond(_, a, b) => {
-            mark(&mut ctx, i, a, true);
-            mark(&mut ctx, i, b, true);
+            mark(&mut ctx, i, a, false);
+            mark(&mut ctx, i, b, false);
           }
           &Inst::Call(_, a) => {
-            mark(&mut ctx, i, a, true);
+            mark(&mut ctx, i, a, false);
           }
           _ => {
           }
@@ -76,9 +76,41 @@ pub fn simplify(module: &Module) -> Module {
     }
     let mut seen_: Vec<_> = ctx.seen.iter().cloned().collect();
     seen_.sort();
+    let mut arg = Vec::new();
+    let mut out = Vec::new();
     for &i in seen_.iter() {
-      for (i, &inst) in iter_block_insts(&code, i) {
-        remap[i] = o_code.emit(inst);
+      if ! ctx.prev.contains_key(&i) {
+        let mut i = i;
+        let mut has_prev = false;
+        loop {
+          let has_next = ctx.next.contains_key(&i);
+          if has_next {
+            let Inst::Label(_, n) = code[i] else { panic!() };
+            out.extend((0 .. n).map(|_| usize::MAX));
+          }
+          for (i, &inst) in iter_block_insts(&code, i) {
+            match inst {
+              Inst::Pop(k) if has_prev => {
+                remap[i] = arg[k];
+              }
+              Inst::Put(k, x) if has_next => {
+                out[k] = x;
+              }
+              Inst::Jump(..) if has_next => {
+              }
+              Inst::Label(..) if has_prev => {
+              }
+              _ => {
+                remap[i] = o_code.emit(inst);
+              }
+            }
+          }
+          arg.clear();
+          if ! has_next { break }
+          i = ctx.next[&i];
+          has_prev = true;
+          std::mem::swap(&mut arg, &mut out);
+        }
       }
     }
     ctx.reset();
