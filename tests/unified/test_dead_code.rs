@@ -56,14 +56,10 @@ fn test_dead_code() {
       %8 = 1
       %9 PUT 0 %8
       %10 RET
-      %11 LABEL 0 1
-      %12 = 3
+      === fun id ===
+      %11 LABEL 1 1
+      %12 = POP 0
       %13 PUT 0 %12
       %14 RET
-      === fun id ===
-      %15 LABEL 1 1
-      %16 = POP 0
-      %17 PUT 0 %16
-      %18 RET
   "#]].assert_eq(out.drain(..).as_ref());
 }

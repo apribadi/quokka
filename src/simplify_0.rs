@@ -23,9 +23,21 @@ struct Info {
 }
 */
 
+fn mark(i: usize, a: usize, todo: &mut Vec<usize>, seen: &mut HashMap<usize, usize>) {
+  let _ = i;
+  match seen.entry(a) {
+    Vacant(e) => {
+      e.insert(1);
+      todo.push(a);
+    }
+    Occupied(e) => {
+      let e = e.into_mut();
+      *e += 1;
+    }
+  }
+}
+
 pub fn simplify(module: &Module) -> Module {
-  module.clone()
-  /*
   let Module { funs, code } = module;
   let mut remap = vec![usize::MAX; code.len()];
   let mut todo = Vec::new();
@@ -33,28 +45,22 @@ pub fn simplify(module: &Module) -> Module {
   let mut o_code = Vec::new();
   let mut o_funs = Vec::new();
   for f in funs.iter() {
-    seen.insert(f.pos, Info { prev: Mult::None, next: Mult::None });
+    seen.insert(f.pos, 0);
     todo.push(f.pos);
     while let Some(i) = todo.pop() {
       for (_, inst) in iter_block_insts(&code, i) {
-        if let Inst::Goto(a) = *inst {
-          let info = seen.get_mut(&i).unwrap();
-          match info.next {
-            _ => ()
+        match inst {
+          &Inst::Jump(a) => {
+            mark(i, a, &mut todo, &mut seen);
           }
-          match seen.entry(a) {
-            Vacant(e) => {
-              e.insert(Info { prev: Mult::Uniq(i), next: Mult::None });
-              todo.push(a);
-            }
-            Occupied(e) => {
-              let info = e.into_mut();
-              match info.prev {
-                Mult::None => panic!(),
-                Mult::Many => (),
-                Mult::Uniq(_) => info.prev = Mult::Many,
-              }
-            }
+          &Inst::Cond(_, a, b) => {
+            mark(i, a, &mut todo, &mut seen);
+            mark(i, b, &mut todo, &mut seen);
+          }
+          &Inst::Call(_, a) => {
+            mark(i, a, &mut todo, &mut seen);
+          }
+          _ => {
           }
         }
       }
@@ -85,5 +91,4 @@ pub fn simplify(module: &Module) -> Module {
     funs: o_funs.into_boxed_slice(),
     code: o_code.into_boxed_slice(),
   }
-  */
 }
