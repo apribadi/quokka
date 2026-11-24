@@ -177,21 +177,21 @@ impl Inst {
   }
 }
 
-struct BBInstIter<'a> {
+struct IterBlockInsts<'a> {
   code: &'a [Inst],
   start: usize,
   index: usize,
 }
 
-pub fn bb_inst_iter<'a>(code: &'a [Inst], index: usize) -> impl Iterator<Item = (usize, &'a Inst)> {
-  BBInstIter {
+pub fn iter_block_insts<'a>(code: &'a [Inst], index: usize) -> impl Iterator<Item = (usize, &'a Inst)> {
+  IterBlockInsts {
     code,
     start: index,
     index: index,
   }
 }
 
-impl<'a> Iterator for BBInstIter<'a> {
+impl<'a> Iterator for IterBlockInsts<'a> {
   type Item = (usize, &'a Inst);
 
   fn next(&mut self) -> Option<Self::Item> {
