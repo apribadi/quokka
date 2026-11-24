@@ -141,39 +141,40 @@ impl std::fmt::Display for Inst {
 
 impl Inst {
   pub fn remap<F: Fn(usize) -> usize>(&self, f: F) -> Self {
-    match *self {
-      Self::Label(m, n) => Self::Label(m, n),
-      Self::Pop(_) => *self,
-      Self::Put(i, x) => Self::Put(i, f(x)),
-      Self::Const(_) => *self,
-      Self::ConstBool(_) => *self,
-      Self::ConstI64(_) => *self,
-      Self::DefLocal(v) => Self::DefLocal(f(v)),
-      Self::GetLocal(v) => Self::GetLocal(f(v)),
-      Self::SetLocal(v, x) => Self::SetLocal(f(v), f(x)),
-      Self::GetField(x, s) => Self::GetField(f(x), s),
-      Self::SetField(x, s, y) => Self::SetField(f(x), s, f(y)),
-      Self::GetIndex(x, y) => Self::GetIndex(f(x), f(y)),
-      Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
-      Self::Op1(op, x) => Self::Op1(op, f(x)),
-      Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
-      Self::Jump(a) => Self::Jump(f(a)),
-      Self::Cond(x, a, b) => Self::Cond(f(x), f(a), f(b)),
-      Self::Call(x, a) => Self::Call(f(x), f(a)),
-      Self::TailCall(x) => Self::TailCall(f(x)),
-      Self::Ret => *self,
-      Self::Fail => *self,
+    match self {
+      &Self::Label(m, n) => Self::Label(m, n),
+      &Self::Pop(_) => *self,
+      &Self::Put(i, x) => Self::Put(i, f(x)),
+      &Self::Const(_) => *self,
+      &Self::ConstBool(_) => *self,
+      &Self::ConstI64(_) => *self,
+      &Self::DefLocal(v) => Self::DefLocal(f(v)),
+      &Self::GetLocal(v) => Self::GetLocal(f(v)),
+      &Self::SetLocal(v, x) => Self::SetLocal(f(v), f(x)),
+      &Self::GetField(x, s) => Self::GetField(f(x), s),
+      &Self::SetField(x, s, y) => Self::SetField(f(x), s, f(y)),
+      &Self::GetIndex(x, y) => Self::GetIndex(f(x), f(y)),
+      &Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
+      &Self::Op1(op, x) => Self::Op1(op, f(x)),
+      &Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
+      &Self::Jump(a) => Self::Jump(f(a)),
+      &Self::Cond(x, a, b) => Self::Cond(f(x), f(a), f(b)),
+      &Self::Call(x, a) => Self::Call(f(x), f(a)),
+      &Self::TailCall(x) => Self::TailCall(f(x)),
+      &Self::Ret => *self,
+      &Self::Fail => *self,
     }
   }
 
   pub fn is_terminal(&self) -> bool {
-    match *self {
-      | Self::Jump(..)
-      | Self::Cond(..)
-      | Self::Call(..)
-      | Self::TailCall(..)
-      | Self::Ret
-      | Self::Fail => true,
+    match self {
+      | &Self::Jump(..)
+      | &Self::Cond(..)
+      | &Self::Call(..)
+      | &Self::TailCall(..)
+      | &Self::Ret
+      | &Self::Fail
+        => true,
       _ => false,
     }
   }
