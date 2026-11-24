@@ -10,6 +10,24 @@ use crate::ssa_0::FunDef;
 use crate::ssa_0::Module;
 use crate::ssa_0::iter_block_insts;
 
+#[derive(Clone)]
+enum Remap {
+  None,
+  Value(usize),
+  Alias(usize),
+}
+
+fn resolve(remap: &Vec<Remap>, i: usize) -> Option<usize> {
+  let mut i = i;
+  loop {
+    match &remap[i] {
+      &Remap::None => { return None },
+      &Remap::Value(k) => { return Some(k) }
+      &Remap::Alias(k) => { i = k; }
+    }
+  }
+}
+
 struct Ctx {
   todo: Vec<usize>,
   seen: HashSet<usize>,
@@ -45,7 +63,7 @@ pub fn simplify(module: &Module) -> Module {
   let Module { funs, code } = module;
   let mut o_code = Vec::new();
   let mut o_funs = Vec::new();
-  let mut remap = vec![usize::MAX; code.len()];
+  let mut remap = vec![Remap::None; code.len()];
   let mut ctx =
     Ctx {
       todo: Vec::new(),
@@ -54,6 +72,7 @@ pub fn simplify(module: &Module) -> Module {
       next: HashMap::new(),
     };
   for f in funs.iter() {
+    let o_f_pos = o_code.len();
     ctx.seen.insert(f.pos);
     ctx.todo.push(f.pos);
     while let Some(i) = ctx.todo.pop() {
@@ -85,13 +104,13 @@ pub fn simplify(module: &Module) -> Module {
         loop {
           let has_next = ctx.next.contains_key(&i);
           if has_next {
-            let Inst::Label(_, n) = code[i] else { panic!() };
+            let Inst::Label(_, n) = code[i] else { unreachable!() };
             out.extend((0 .. n).map(|_| usize::MAX));
           }
-          for (i, &inst) in iter_block_insts(&code, i) {
+          for (j, &inst) in iter_block_insts(&code, i) {
             match inst {
               Inst::Pop(k) if has_prev => {
-                remap[i] = arg[k];
+                remap[j] = Remap::Alias(arg[k]);
               }
               Inst::Put(k, x) if has_next => {
                 out[k] = x;
@@ -101,7 +120,7 @@ pub fn simplify(module: &Module) -> Module {
               Inst::Label(..) if has_prev => {
               }
               _ => {
-                remap[i] = o_code.emit(inst);
+                remap[j] = Remap::Value(o_code.emit(inst));
               }
             }
           }
@@ -114,19 +133,21 @@ pub fn simplify(module: &Module) -> Module {
       }
     }
     ctx.reset();
-    let o_f_pos = remap[f.pos];
-    let o_f_end = o_code.len();
-    let o_f_len = o_f_end - o_f_pos;
-    for i in o_f_pos .. o_f_end {
-      o_code[i] = o_code[i].remap(|i| remap[i]);
-    }
     o_funs.push(
       FunDef {
         name: f.name,
         pos: o_f_pos,
-        len: o_f_len,
+        len: o_code.len() - o_f_pos,
       }
     );
+  }
+  let mut resolved = Vec::new();
+  for i in 0 .. code.len() {
+    resolved.push(resolve(&remap, i).unwrap_or(usize::MAX));
+  }
+  let remap = resolved;
+  for i in 0 .. o_code.len() {
+    o_code[i] = o_code[i].remap(|i| remap[i]);
   }
   Module {
     funs: o_funs.into_boxed_slice(),
