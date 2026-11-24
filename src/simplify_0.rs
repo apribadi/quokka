@@ -17,6 +17,15 @@ struct Ctx {
   next: HashMap<usize, usize>,
 }
 
+impl Ctx {
+  fn reset(&mut self) {
+    self.todo.clear();
+    self.seen.clear();
+    self.prev.clear();
+    self.next.clear();
+  }
+}
+
 fn mark(ctx: &mut Ctx, a: usize, b: usize, is_jump: bool) {
   if ctx.seen.contains(&b) {
     if let Some(c) = ctx.prev.remove(&b) {
@@ -72,7 +81,7 @@ pub fn simplify(module: &Module) -> Module {
         remap[i] = o_code.emit(inst);
       }
     }
-    ctx.seen.clear();
+    ctx.reset();
     let o_f_pos = remap[f.pos];
     let o_f_end = o_code.len();
     let o_f_len = o_f_end - o_f_pos;
