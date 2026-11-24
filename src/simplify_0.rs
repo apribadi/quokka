@@ -10,29 +10,24 @@ use crate::ssa_0::FunDef;
 use crate::ssa_0::Module;
 use crate::ssa_0::iter_block_insts;
 
-/*
-enum Mult<A> {
-  None,
-  Many,
-  Uniq(A),
+struct Ctx {
+  todo: Vec<usize>,
+  seen: HashSet<usize>,
+  prev: HashMap<usize, usize>,
+  next: HashMap<usize, usize>,
 }
 
-struct Info {
-  prev: Mult<usize>,
-  next: Mult<usize>,
-}
-*/
-
-fn mark(i: usize, a: usize, todo: &mut Vec<usize>, seen: &mut HashMap<usize, usize>) {
-  let _ = i;
-  match seen.entry(a) {
-    Vacant(e) => {
-      e.insert(1);
-      todo.push(a);
+fn mark(ctx: &mut Ctx, a: usize, b: usize, is_jump: bool) {
+  if ctx.seen.contains(&b) {
+    if let Some(c) = ctx.prev.remove(&b) {
+      ctx.next.remove(&c);
     }
-    Occupied(e) => {
-      let e = e.into_mut();
-      *e += 1;
+  } else {
+    ctx.seen.insert(b);
+    ctx.todo.push(b);
+    if is_jump {
+      ctx.next.insert(a, b);
+      ctx.prev.insert(b, a);
     }
   }
 }
@@ -40,39 +35,44 @@ fn mark(i: usize, a: usize, todo: &mut Vec<usize>, seen: &mut HashMap<usize, usi
 pub fn simplify(module: &Module) -> Module {
   let Module { funs, code } = module;
   let mut remap = vec![usize::MAX; code.len()];
-  let mut todo = Vec::new();
-  let mut seen = HashMap::new();
   let mut o_code = Vec::new();
   let mut o_funs = Vec::new();
+  let mut ctx =
+    Ctx {
+      todo: Vec::new(),
+      seen: HashSet::new(),
+      prev: HashMap::new(),
+      next: HashMap::new(),
+    };
   for f in funs.iter() {
-    seen.insert(f.pos, 0);
-    todo.push(f.pos);
-    while let Some(i) = todo.pop() {
+    ctx.seen.insert(f.pos);
+    ctx.todo.push(f.pos);
+    while let Some(i) = ctx.todo.pop() {
       for (_, inst) in iter_block_insts(&code, i) {
         match inst {
           &Inst::Jump(a) => {
-            mark(i, a, &mut todo, &mut seen);
+            mark(&mut ctx, i, a, true);
           }
           &Inst::Cond(_, a, b) => {
-            mark(i, a, &mut todo, &mut seen);
-            mark(i, b, &mut todo, &mut seen);
+            mark(&mut ctx, i, a, true);
+            mark(&mut ctx, i, b, true);
           }
           &Inst::Call(_, a) => {
-            mark(i, a, &mut todo, &mut seen);
+            mark(&mut ctx, i, a, true);
           }
           _ => {
           }
         }
       }
     }
-    let mut seen_: Vec<_> = seen.keys().cloned().collect();
+    let mut seen_: Vec<_> = ctx.seen.iter().cloned().collect();
     seen_.sort();
     for &i in seen_.iter() {
       for (i, &inst) in iter_block_insts(&code, i) {
         remap[i] = o_code.emit(inst);
       }
     }
-    seen.clear();
+    ctx.seen.clear();
     let o_f_pos = remap[f.pos];
     let o_f_end = o_code.len();
     let o_f_len = o_f_end - o_f_pos;
