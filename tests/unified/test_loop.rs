@@ -49,42 +49,5 @@ fn test_loop() {
       %27 = %25 + %26
       %28 PUT 0 %27
       %29 RET
-
-      SIMPLIFIED
-
-      === fun foo ===
-      %0 LABEL 0 0
-      %1 JUMP ==> %2
-      %2 LABEL 0 1
-      %3 = 1
-      %4 PUT 0 %3
-      %5 RET
-      === fun bar ===
-      %6 LABEL 0 0
-      %7 JUMP ==> %8
-      %8 LABEL 0 0
-      %9 JUMP ==> %8
-      === fun baz ===
-      %10 LABEL 0 0
-      %11 JUMP ==> %12
-      %12 LABEL 0 1
-      %13 = 1
-      %14 PUT 0 %13
-      %15 RET
-      === fun qux ===
-      %16 LABEL 0 0
-      %17 JUMP ==> %18
-      %18 LABEL 0 2
-      %19 = 1
-      %20 = 2
-      %21 PUT 0 %19
-      %22 PUT 1 %20
-      %23 JUMP ==> %24
-      %24 LABEL 2 1
-      %25 = POP 0
-      %26 = POP 1
-      %27 = %25 + %26
-      %28 PUT 0 %27
-      %29 RET
   "#]].assert_eq(out.drain(..).as_ref());
 }

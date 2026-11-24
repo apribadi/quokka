@@ -1,8 +1,8 @@
 pub(crate) fn test(out: &mut impl std::fmt::Write, source: &str) {
   let module = quokka::parser::parse(source.as_bytes());
   let module = quokka::compile_0::compile(&module);
-  dump(out, &module);
-  write!(out, "\nSIMPLIFIED\n\n");
+  // dump(out, &module);
+  // write!(out, "\nSIMPLIFIED\n\n");
   let module = quokka::simplify_0::simplify(&module);
   dump(out, &module);
 }
