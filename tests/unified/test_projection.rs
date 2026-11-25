@@ -9,7 +9,7 @@ fn test_projection() {
 
   test(&mut out, "
     fun foo(x) {
-      x.a.b[1].c(2, 3)
+      x.a.b[1].c-c-c(2, 3)
     }
   ");
 
@@ -23,7 +23,7 @@ fn test_projection() {
       %5 = %1 [ .a ]
       %6 = %5 [ .b ]
       %7 = %6 [ %4 ]
-      %8 = %7 [ .c ]
+      %8 = %7 [ .c-c-c ]
       %9 PUT 0 %2
       %10 PUT 1 %3
       %11 TAIL-CALL %8

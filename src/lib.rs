@@ -7,6 +7,7 @@ pub mod simplify_0;
 pub mod ssa_0;
 pub mod symbol;
 pub mod token;
+pub mod unionfind;
 
 // syntax ideas - use something in { :, @, ` } to denote symbol/label ?
 //
