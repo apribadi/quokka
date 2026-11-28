@@ -1,4 +1,3 @@
-use crate::prelude::*;
 use crate::ast::Bind;
 use crate::ast::Expr;
 use crate::ast::Fun;
@@ -7,9 +6,11 @@ use crate::ast::Op1;
 use crate::ast::Op2;
 use crate::ast::Stmt;
 use crate::lexer::scan;
-use crate::token::Token;
+use crate::prelude::*;
 use crate::symbol::Symbol;
 use crate::symbol::SymbolTable;
+use crate::token::Token;
+use std::mem::replace;
 
 // TODO: consider defining a token immediately following a "}" as never attached
 
@@ -31,6 +32,21 @@ struct Parser<'a, 'b> {
   exprs: Vec<Expr>,
   stmts: Vec<Stmt>,
   symbol_table: SymbolTable,
+  error: Option<ParseError>,
+}
+
+#[derive(Clone, Copy, Debug)]
+enum ParseError {
+  ExpectedAttachedSymbol,
+  ExpectedEqual,
+  ExpectedExpression,
+  ExpectedLBrace,
+  ExpectedLParen,
+  ExpectedName,
+  ExpectedRBrace,
+  ExpectedRBracket,
+  ExpectedRParen,
+  MalformedInt,
 }
 
 #[derive(Eq, Ord, PartialEq, PartialOrd)]
@@ -67,6 +83,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       exprs: Vec::new(),
       stmts: Vec::new(),
       symbol_table: SymbolTable::new(),
+      error: None,
     }
   }
 
@@ -99,12 +116,58 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.symbol_table.intern(self.token_str())
   }
 
-  fn expect(&mut self, token: Token) {
+  fn on_error(&mut self, e: ParseError) {
+    // TODO: mark error location
+    if let None = self.error { self.error = Some(e); }
+  }
+
+  fn parse_token(&mut self, token: Token, error: ParseError) {
     if self.token() != token {
-      self.on_error_missing_expected_token(token);
+      self.on_error(error);
     } else {
       self.next();
     }
+  }
+
+  fn parse_item_list(&mut self) {
+    loop {
+      match self.token() {
+        Token::Eof => {
+          break;
+        }
+        Token::Fun => {
+          if let Err(_) = self.parse_fun() { break; }
+        }
+        _ => {
+          // TODO: error?
+          break;
+        }
+      }
+    }
+  }
+
+  fn parse_equal(&mut self) {
+    self.parse_token(Token::Equal, ParseError::ExpectedEqual)
+  }
+
+  fn parse_lparen(&mut self) {
+    self.parse_token(Token::LParen, ParseError::ExpectedLParen)
+  }
+
+  fn parse_rparen(&mut self) {
+    self.parse_token(Token::RParen, ParseError::ExpectedRParen)
+  }
+
+  fn parse_rbracket(&mut self) {
+    self.parse_token(Token::RBracket, ParseError::ExpectedRBracket)
+  }
+
+  fn parse_lbrace(&mut self) {
+    self.parse_token(Token::LBrace, ParseError::ExpectedLBrace)
+  }
+
+  fn parse_rbrace(&mut self) {
+    self.parse_token(Token::RBrace, ParseError::ExpectedRBrace)
   }
 
   fn parse_path_segment(&mut self) -> Symbol {
@@ -113,7 +176,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       self.next();
       s
     } else {
-      self.on_error_missing_expected_token(Token::Symbol); // log expected attachment ??
+      self.on_error(ParseError::ExpectedAttachedSymbol);
       self.symbol_table.intern("_")
     }
   }
@@ -130,33 +193,23 @@ impl<'a, 'b> Parser<'a, 'b> {
         None
       }
       _ => {
-        self.on_error_missing_expected_token(Token::Symbol);
+        self.on_error(ParseError::ExpectedName);
         None
       }
     }
   }
 
-  fn parse_item_list(&mut self) {
-    loop {
-      match self.token() {
-        Token::Eof => {
-          break;
-        }
-        Token::Fun => {
-          self.next();
-          let name = self.parse_name();
-          self.expect(Token::LParen);
-          let m = self.parse_bind_list(Token::RParen);
-          self.expect(Token::RParen);
-          let n = self.parse_block();
-          self.on_fun(name, m, n);
-        }
-        _ => {
-          // TODO: error?
-          break;
-        }
-      }
-    }
+  fn parse_fun(&mut self) -> Result<(), ParseError> {
+    assert!(self.token() == Token::Fun);
+    self.next();
+    let name = self.parse_name();
+    self.parse_lparen();
+    let m = self.parse_bind_list(Token::RParen);
+    self.parse_rparen();
+    let n = self.parse_block();
+    self.on_fun(name, m, n);
+    let e = replace(&mut self.error, None);
+    match e { None => Ok(()), Some(e) => Err(e), }
   }
 
   fn parse_bind_list(&mut self, stop: Token) -> usize {
@@ -170,7 +223,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.next();
       }
     }
-    return n_binds;
+    n_binds
   }
 
   fn parse_expr(&mut self) {
@@ -187,7 +240,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.next();
       }
     }
-    return n_exprs;
+    n_exprs
   }
 
   fn parse_expr_prec(&mut self, p: Priority) {
@@ -202,7 +255,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       Token::LParen => {
         self.next();
         self.parse_expr();
-        self.expect(Token::RParen);
+        self.parse_rparen();
       }
       Token::True => {
         self.next();
@@ -261,9 +314,9 @@ impl<'a, 'b> Parser<'a, 'b> {
       }
       Token::If => {
         self.next();
-        self.expect(Token::LParen);
+        self.parse_lparen();
         self.parse_expr();
-        self.expect(Token::RParen);
+        self.parse_rparen();
         let n = self.parse_block();
         if self.token() == Token::Else {
           self.next();
@@ -279,7 +332,8 @@ impl<'a, 'b> Parser<'a, 'b> {
         self.on_loop(n);
       }
       _ => {
-        self.on_error_missing_expr();
+        self.on_fail_expr(ParseError::ExpectedExpression);
+        return false;
       }
     }
 
@@ -390,7 +444,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         Token::LBracket if self.token_is_attached() => {
           self.next();
           self.parse_expr();
-          self.expect(Token::RBracket);
+          self.parse_rbracket();
           if is_stmt && self.token() == Token::Equal {
             self.next();
             self.parse_expr();
@@ -403,7 +457,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         Token::LParen if self.token_is_attached() => {
           self.next();
           let n_args = self.parse_expr_list(Token::RParen);
-          self.expect(Token::RParen);
+          self.parse_rparen();
           self.on_call(n_args);
         }
         _ => {
@@ -414,7 +468,7 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn parse_block(&mut self) -> usize {
-    self.expect(Token::LBrace);
+    self.parse_lbrace();
 
     let mut n_stmts = 0;
 
@@ -429,14 +483,14 @@ impl<'a, 'b> Parser<'a, 'b> {
           let n_args = self.parse_expr_list(Token::RBrace);
           self.on_break(n_args);
           n_stmts += 1;
-          self.expect(Token::RBrace);
+          self.parse_rbrace();
           break;
         }
         Token::Continue => {
           self.next();
           self.on_continue();
           n_stmts += 1;
-          self.expect(Token::RBrace);
+          self.parse_rbrace();
           break;
         }
         Token::Let => {
@@ -444,7 +498,7 @@ impl<'a, 'b> Parser<'a, 'b> {
           if self.token() == Token::Mut {
             self.next();
             let name = self.parse_name();
-            self.expect(Token::Equal);
+            self.parse_equal();
             self.parse_expr();
             self.on_let_mut(name);
             n_stmts += 1;
@@ -455,7 +509,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             //
             // which is a bit weird. but works semantically
             let n_binds = self.parse_bind_list(Token::Equal);
-            self.expect(Token::Equal);
+            self.parse_equal();
             let mut n_exprs = 0;
             loop {
               self.parse_expr();
@@ -472,14 +526,14 @@ impl<'a, 'b> Parser<'a, 'b> {
           let n_args = self.parse_expr_list(Token::RBrace);
           self.on_return(n_args);
           n_stmts += 1;
-          self.expect(Token::RBrace);
+          self.parse_rbrace();
           break;
         }
         Token::While => {
           self.next();
-          self.expect(Token::LParen);
+          self.parse_lparen();
           self.parse_expr();
-          self.expect(Token::RParen);
+          self.parse_rparen();
           let n = self.parse_block();
           self.on_while(n);
           n_stmts += 1;
@@ -508,14 +562,14 @@ impl<'a, 'b> Parser<'a, 'b> {
             //
             // Also, note that in this case we still emit a `fail` expr/stmt.
 
-            self.expect(Token::RBrace);
+            self.parse_rbrace();
             break;
           }
         }
       }
     }
 
-    return n_stmts;
+    n_stmts
   }
 
   // ------- PARSER OUTPUT TO AST -------
@@ -574,7 +628,7 @@ impl<'a, 'b> Parser<'a, 'b> {
     let n =
       match i64::from_str_radix(x, 10) {
         Err(_) => {
-          self.push_expr(Expr::Fail);
+          self.on_fail_expr(ParseError::MalformedInt);
           return;
         }
         Ok(n) => n
@@ -699,17 +753,8 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.push_stmt(Stmt::While(x, y));
   }
 
-  fn on_fail_expr(&mut self) {
+  fn on_fail_expr(&mut self, error: ParseError) {
+    self.on_error(error);
     self.push_expr(Expr::Fail);
-  }
-
-  fn on_error_missing_expected_token(&mut self, token: Token) {
-    let _ = token;
-    // TODO: report error on missing expected token
-  }
-
-  fn on_error_missing_expr(&mut self) {
-    // TODO: report error on missing expected expression
-    self.on_fail_expr();
   }
 }

@@ -1,3 +1,4 @@
+pub mod dfa;
 pub mod ast;
 pub mod compile_0;
 pub mod lexer;
