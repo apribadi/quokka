@@ -53,7 +53,7 @@ fn test_if() {
       %25 LABEL 1 1
       %26 = POP 0
       %27 = 5
-      %28 = %26 + %27
+      %28 = OP2 %26 + %27
       %29 PUT 0 %28
       %30 RET
   "#]].assert_eq(out.drain(..).as_ref());

@@ -37,6 +37,8 @@ pub enum Inst {
   SetField(Value, Symbol, Value),
   GetIndex(Value, Value),
   SetIndex(Value, Value, Value),
+  Cmp(Cmp, Value, Value),
+  Not(Value),
   Op1(Op1, Value),
   Op2(Op2, Value, Value),
   Jump(Label),
@@ -47,14 +49,6 @@ pub enum Inst {
   Fail,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[derive(Debug)]
-pub enum Op1 {
-  BitComplement,
-  Neg,
-  Not,
-}
-
 // NB:
 //
 // we normalize some comparison operators
@@ -62,16 +56,25 @@ pub enum Op1 {
 // - x >= y => y <= x
 // - x > y => y < x
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Cmp {
+  Eq,
+  Le,
+  Lt,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Op1 {
+  BitComplement,
+  Neg,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Op2 {
   Add,
   BitAnd,
   BitOr,
   BitXor,
-  CmpEq,
-  CmpLe,
-  CmpLt,
   Div,
   Mul,
   Rem,
@@ -80,12 +83,21 @@ pub enum Op2 {
   Sub,
 }
 
+impl std::fmt::Display for Cmp {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Self::Eq => write!(f, "=="),
+      Self::Le => write!(f, "<="),
+      Self::Lt => write!(f, "<"),
+    }
+  }
+}
+
 impl std::fmt::Display for Op1 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
       Self::BitComplement => write!(f, "^"),
       Self::Neg => write!(f, "-"),
-      Self::Not => write!(f, "!"),
     }
   }
 }
@@ -97,9 +109,6 @@ impl std::fmt::Display for Op2 {
       Self::BitAnd => write!(f, "&"),
       Self::BitOr => write!(f, "|"),
       Self::BitXor => write!(f, "^"),
-      Self::CmpEq => write!(f, "=="),
-      Self::CmpLe => write!(f, "<="),
-      Self::CmpLt => write!(f, "<"),
       Self::Div => write!(f, "/"),
       Self::Mul => write!(f, "*"),
       Self::Rem => write!(f, "%"),
@@ -126,8 +135,10 @@ impl std::fmt::Display for Inst {
       Self::SetField(x, s, y) => write!(f, "%{} [ .{} ] <- %{}", x, s, y),
       Self::GetIndex(x, y) => write!(f, "= %{} [ %{} ]", x, y),
       Self::SetIndex(x, y, z) => write!(f, "%{} [ %{} ] <- %{}", x, y, z),
-      Self::Op1(op, x) => write!(f, "= {} %{}", op, x),
-      Self::Op2(op, x, y) => write!(f, "= %{} {} %{}", x, op, y),
+      Self::Cmp(op, x, y) => write!(f, "= CMP %{} {} %{}", x, op, y),
+      Self::Not(x) => write!(f, "= NOT %{}", x),
+      Self::Op1(op, x) => write!(f, "= OP1 {} %{}", op, x),
+      Self::Op2(op, x, y) => write!(f, "= OP2 %{} {} %{}", x, op, y),
       Self::Jump(a) => write!(f, "JUMP ==> %{}", a),
       Self::Cond(x, a, b) => write!(f, "COND %{} ==> %{} %{}", x, a, b),
       Self::Call(x, a) => write!(f, "CALL %{} ==> %{}", x, a),
@@ -155,6 +166,8 @@ impl Inst {
       &Self::SetField(x, s, y) => Self::SetField(f(x), s, f(y)),
       &Self::GetIndex(x, y) => Self::GetIndex(f(x), f(y)),
       &Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
+      &Self::Cmp(op, x, y) => Self::Cmp(op, f(x), f(y)),
+      &Self::Not(x) => Self::Not(f(x)),
       &Self::Op1(op, x) => Self::Op1(op, f(x)),
       &Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
       &Self::Jump(a) => Self::Jump(f(a)),

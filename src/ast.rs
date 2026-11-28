@@ -35,6 +35,8 @@ pub enum Expr {
   GetIndex(Box<(Expr, Expr)>),                   // a[b]
   If(Box<(Expr, Box<[Stmt]>)>),                  // if (a) { ... }
   IfElse(Box<(Expr, Box<[Stmt]>, Box<[Stmt]>)>), // if (a) { ... } else { ... }
+  Cmp(Box<(Cmp, Expr, Expr)>),                   // a != b
+  Not(Box<Expr>),                                // ! a
   Op1(Box<(Op1, Expr)>),                         // - a
   Op2(Box<(Op2, Expr, Expr)>),                   // a + b
   ShortCircuitAnd(Box<(Expr, Expr)>),            // a && b
@@ -52,27 +54,28 @@ pub struct Bind {
   pub name: Option<Symbol>,
 }
 
-#[derive(Clone, Copy)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
+pub enum Cmp {
+  Eq,  // a == b
+  Ge,  // a >= b
+  Gt,  // a > b
+  Le,  // a <= b
+  Lt,  // a < b
+  Ne,  // a != b
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum Op1 {
   BitComplement, // ^ a
   Neg, // - a
-  Not, // ! a
 }
 
-#[derive(Clone, Copy)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Op2 {
   Add,    // a + b
   BitAnd, // a & b
   BitOr,  // a | b
   BitXor, // a ^ b
-  CmpEq,  // a == b
-  CmpGe,  // a >= b
-  CmpGt,  // a > b
-  CmpLe,  // a <= b
-  CmpLt,  // a < b
-  CmpNe,  // a != b
   Div,    // a / b
   Mul,    // a * b
   Rem,    // a % b

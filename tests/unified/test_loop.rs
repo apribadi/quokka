@@ -34,7 +34,7 @@ fn test_loop() {
       %12 LABEL 0 0
       %13 = 1
       %14 = 2
-      %15 = %13 + %14
+      %15 = OP2 %13 + %14
       %16 PUT 0 %15
       %17 RET
   "#]].assert_eq(out.drain(..).as_ref());

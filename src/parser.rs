@@ -2,6 +2,7 @@ use crate::ast::Bind;
 use crate::ast::Expr;
 use crate::ast::Fun;
 use crate::ast::Item;
+use crate::ast::Cmp;
 use crate::ast::Op1;
 use crate::ast::Op2;
 use crate::ast::Stmt;
@@ -307,7 +308,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       Token::Not => {
         self.next();
         self.parse_expr_prec(Priority::Unary);
-        self.on_op1(Op1::Not);
+        self.on_not();
       }
       Token::If => {
         self.next();
@@ -349,32 +350,32 @@ impl<'a, 'b> Parser<'a, 'b> {
         Token::CmpEq if p < Priority::Cmp => {
           self.next();
           self.parse_expr_prec(Priority::Cmp);
-          self.on_op2(Op2::CmpEq);
+          self.on_cmp(Cmp::Eq);
         }
         Token::CmpGe if p < Priority::Cmp => {
           self.next();
           self.parse_expr_prec(Priority::Cmp);
-          self.on_op2(Op2::CmpGe);
+          self.on_cmp(Cmp::Ge);
         }
         Token::CmpGt if p < Priority::Cmp => {
           self.next();
           self.parse_expr_prec(Priority::Cmp);
-          self.on_op2(Op2::CmpGt);
+          self.on_cmp(Cmp::Gt);
         }
         Token::CmpLe if p < Priority::Cmp => {
           self.next();
           self.parse_expr_prec(Priority::Cmp);
-          self.on_op2(Op2::CmpLe);
+          self.on_cmp(Cmp::Le);
         }
         Token::CmpLt if p < Priority::Cmp => {
           self.next();
           self.parse_expr_prec(Priority::Cmp);
-          self.on_op2(Op2::CmpLt);
+          self.on_cmp(Cmp::Lt);
         }
         Token::CmpNe if p < Priority::Cmp => {
           self.next();
           self.parse_expr_prec(Priority::Cmp);
-          self.on_op2(Op2::CmpNe);
+          self.on_cmp(Cmp::Ne);
         }
         Token::BitOr if p < Priority::Add => {
           self.next();
@@ -640,6 +641,17 @@ impl<'a, 'b> Parser<'a, 'b> {
     let y = self.pop_expr();
     let x = self.pop_expr();
     self.push_expr(Expr::ShortCircuitAnd(Box::new((x, y))));
+  }
+
+  fn on_cmp(&mut self, op: Cmp) {
+    let y = self.pop_expr();
+    let x = self.pop_expr();
+    self.push_expr(Expr::Cmp(Box::new((op, x, y))));
+  }
+
+  fn on_not(&mut self) {
+    let x = self.pop_expr();
+    self.push_expr(Expr::Not(Box::new(x)));
   }
 
   fn on_op1(&mut self, op: Op1) {
