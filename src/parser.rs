@@ -36,16 +36,11 @@ struct Parser<'a, 'b> {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum ParseError {
+pub enum ParseError {
   ExpectedAttachedSymbol,
-  ExpectedEqual,
   ExpectedExpression,
-  ExpectedLBrace,
-  ExpectedLParen,
   ExpectedName,
-  ExpectedRBrace,
-  ExpectedRBracket,
-  ExpectedRParen,
+  ExpectedToken(Token),
   MalformedInt,
 }
 
@@ -64,8 +59,8 @@ fn next<'a, 'b>(source: &'b [(Token, bool, &'a [u8])])
   -> ((Token, bool, &'a [u8]), &'b [(Token, bool, &'a [u8])])
 {
   match source.split_first() {
-    None => ((Token::Eof, false, &[]), &[]),
-    Some((&(x, y, z), source)) => ((x, y, z), source),
+  | None => ((Token::Eof, false, &[]), &[]),
+  | Some((&(x, y, z), source)) => ((x, y, z), source),
   }
 }
 
@@ -116,56 +111,22 @@ impl<'a, 'b> Parser<'a, 'b> {
     self.symbol_table.intern(self.token_str())
   }
 
-  fn on_error(&mut self, e: ParseError) {
-    // TODO: mark error location
-    if let None = self.error { self.error = Some(e); }
-  }
-
-  fn parse_token(&mut self, token: Token, error: ParseError) {
-    if self.token() != token {
-      self.on_error(error);
-    } else {
-      self.next();
-    }
-  }
-
   fn parse_item_list(&mut self) {
     loop {
       match self.token() {
-        Token::Eof => break,
-        Token::Fun => {
-          if let Err(_) = self.parse_fun() { break; }
-        }
-        _ => {
-          // TODO: error?
-          break;
-        }
+      | Token::Eof => break,
+      | Token::Fun => if let Err(_) = self.parse_fun() { break; },
+      | _ => break, // TODO: error?
       }
     }
   }
 
-  fn parse_equal(&mut self) {
-    self.parse_token(Token::Equal, ParseError::ExpectedEqual)
-  }
-
-  fn parse_lparen(&mut self) {
-    self.parse_token(Token::LParen, ParseError::ExpectedLParen)
-  }
-
-  fn parse_rparen(&mut self) {
-    self.parse_token(Token::RParen, ParseError::ExpectedRParen)
-  }
-
-  fn parse_rbracket(&mut self) {
-    self.parse_token(Token::RBracket, ParseError::ExpectedRBracket)
-  }
-
-  fn parse_lbrace(&mut self) {
-    self.parse_token(Token::LBrace, ParseError::ExpectedLBrace)
-  }
-
-  fn parse_rbrace(&mut self) {
-    self.parse_token(Token::RBrace, ParseError::ExpectedRBrace)
+  fn parse_token(&mut self, token: Token) {
+    if self.token() != token {
+      self.on_error(ParseError::ExpectedToken(token));
+    } else {
+      self.next();
+    }
   }
 
   fn parse_path_segment(&mut self) -> Symbol {
@@ -181,19 +142,19 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   fn parse_name(&mut self) -> Option<Symbol> {
     match self.token() {
-      Token::Symbol => {
-        let s = self.token_symbol();
-        self.next();
-        Some(s)
-      }
-      Token::Underscore => {
-        self.next();
-        None
-      }
-      _ => {
-        self.on_error(ParseError::ExpectedName);
-        None
-      }
+    | Token::Symbol => {
+      let s = self.token_symbol();
+      self.next();
+      Some(s)
+    }
+    | Token::Underscore => {
+      self.next();
+      None
+    }
+    | _ => {
+      self.on_error(ParseError::ExpectedName);
+      None
+    }
     }
   }
 
@@ -201,9 +162,9 @@ impl<'a, 'b> Parser<'a, 'b> {
     debug_assert!(self.token() == Token::Fun);
     self.next();
     let name = self.parse_name();
-    self.parse_lparen();
+    self.parse_token(Token::LParen);
     let m = self.parse_bind_list(Token::RParen);
-    self.parse_rparen();
+    self.parse_token(Token::RParen);
     let n = self.parse_block();
     self.on_fun(name, m, n);
     let e = replace(&mut self.error, None);
@@ -253,7 +214,7 @@ impl<'a, 'b> Parser<'a, 'b> {
       Token::LParen => {
         self.next();
         self.parse_expr();
-        self.parse_rparen();
+        self.parse_token(Token::RParen);
       }
       Token::True => {
         self.next();
@@ -312,9 +273,9 @@ impl<'a, 'b> Parser<'a, 'b> {
       }
       Token::If => {
         self.next();
-        self.parse_lparen();
+        self.parse_token(Token::LParen);
         self.parse_expr();
-        self.parse_rparen();
+        self.parse_token(Token::RParen);
         let n = self.parse_block();
         if self.token() == Token::Else {
           self.next();
@@ -442,7 +403,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         Token::LBracket if self.token_is_attached() => {
           self.next();
           self.parse_expr();
-          self.parse_rbracket();
+          self.parse_token(Token::RBracket);
           if is_stmt && self.token() == Token::Equal {
             self.next();
             self.parse_expr();
@@ -455,7 +416,7 @@ impl<'a, 'b> Parser<'a, 'b> {
         Token::LParen if self.token_is_attached() => {
           self.next();
           let n_args = self.parse_expr_list(Token::RParen);
-          self.parse_rparen();
+          self.parse_token(Token::RParen);
           self.on_call(n_args);
         }
         _ => {
@@ -466,29 +427,32 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn parse_block(&mut self) -> usize {
-    self.parse_lbrace();
+    self.parse_token(Token::LBrace);
+    self.parse_stmt_list(Token::RBrace)
+  }
 
+  fn parse_stmt_list(&mut self, stop: Token) -> usize {
     let mut n_stmts = 0;
 
     loop {
       match self.token() {
-        Token::RBrace => {
+        token if token == stop => {
           self.next();
           break;
         }
         Token::Break => {
           self.next();
-          let n_args = self.parse_expr_list(Token::RBrace);
+          let n_args = self.parse_expr_list(stop);
           self.on_break(n_args);
           n_stmts += 1;
-          self.parse_rbrace();
+          self.parse_token(stop);
           break;
         }
         Token::Continue => {
           self.next();
           self.on_continue();
           n_stmts += 1;
-          self.parse_rbrace();
+          self.parse_token(stop);
           break;
         }
         Token::Let => {
@@ -496,7 +460,7 @@ impl<'a, 'b> Parser<'a, 'b> {
           if self.token() == Token::Mut {
             self.next();
             let name = self.parse_name();
-            self.parse_equal();
+            self.parse_token(Token::Equal);
             self.parse_expr();
             self.on_let_mut(name);
             n_stmts += 1;
@@ -507,7 +471,7 @@ impl<'a, 'b> Parser<'a, 'b> {
             //
             // which is a bit weird. but works semantically
             let n_binds = self.parse_bind_list(Token::Equal);
-            self.parse_equal();
+            self.parse_token(Token::Equal);
             let mut n_exprs = 0;
             loop {
               self.parse_expr();
@@ -521,17 +485,17 @@ impl<'a, 'b> Parser<'a, 'b> {
         }
         Token::Return => {
           self.next();
-          let n_args = self.parse_expr_list(Token::RBrace);
+          let n_args = self.parse_expr_list(stop);
           self.on_return(n_args);
           n_stmts += 1;
-          self.parse_rbrace();
+          self.parse_token(stop);
           break;
         }
         Token::While => {
           self.next();
-          self.parse_lparen();
+          self.parse_token(Token::LParen);
           self.parse_expr();
-          self.parse_rparen();
+          self.parse_token(Token::RParen);
           let n = self.parse_block();
           self.on_while(n);
           n_stmts += 1;
@@ -556,12 +520,12 @@ impl<'a, 'b> Parser<'a, 'b> {
             // NB: If we couldn't parse anything at all, then we immediately
             // close the block so that we don't get stuck in an infinite loop.
             //
-            // Note that we already know that there ISN'T an RBrace here, so the
-            // expect will fail.
+            // Note that we already know that there ISN'T a `stop` token here,
+            // so the expect will fail.
             //
             // Also, note that in this case we still emit a `fail` expr/stmt.
 
-            self.parse_rbrace();
+            self.parse_token(stop);
             break;
           }
         }
@@ -763,5 +727,10 @@ impl<'a, 'b> Parser<'a, 'b> {
   fn on_fail_expr(&mut self, error: ParseError) {
     self.on_error(error);
     self.push_expr(Expr::Fail);
+  }
+
+  fn on_error(&mut self, e: ParseError) {
+    // TODO: mark error location
+    if let None = self.error { self.error = Some(e); }
   }
 }
