@@ -23,9 +23,8 @@ fn test_scan() {
       a,b,c
       foo.bar.baz
       "foo\"".len
-      ;"#
-    )
-  {
+      ;"#,
+  ) {
     write!(&mut o, "{:?} {:?} {:?}\n", str::from_utf8(s).unwrap(), t, a);
   }
   expect_test::expect![[r#"
@@ -67,15 +66,14 @@ fn test_scan() {
       "len" Symbol true
   "#]].assert_eq(o.drain(..).as_str());
   for (t, a, s) in scan(
-      b"
+    b"
 fun fib(n) {
   if n <= 2 {
     return n
   } else {
     return fib(n - 1) + fib(n - 2)
-  }"
-    )
-  {
+  }",
+  ) {
     write!(&mut o, "{:?} {:?} {:?}\n", str::from_utf8(s).unwrap(), t, a);
   }
   expect_test::expect![[r#"

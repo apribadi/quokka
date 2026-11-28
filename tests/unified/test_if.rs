@@ -7,7 +7,9 @@ use expect_test::expect;
 fn test_if() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun foo(x, y, z) {
       let a =
         if (x) {
@@ -21,7 +23,8 @@ fn test_if() {
         } } }
       return a + 5
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun foo ===
@@ -63,7 +66,9 @@ fn test_if() {
 fn test_short_circuit() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun foo(x, y, z) {
       if (x && y && z) {
         1
@@ -71,7 +76,8 @@ fn test_short_circuit() {
         2
       }
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun foo ===

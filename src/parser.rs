@@ -1,8 +1,8 @@
 use crate::ast::Bind;
+use crate::ast::Cmp;
 use crate::ast::Expr;
 use crate::ast::Fun;
 use crate::ast::Item;
-use crate::ast::Cmp;
 use crate::ast::Op1;
 use crate::ast::Op2;
 use crate::ast::Stmt;
@@ -55,9 +55,9 @@ enum Priority {
   Unary,
 }
 
-fn next<'a, 'b>(source: &'b [(Token, bool, &'a [u8])])
-  -> ((Token, bool, &'a [u8]), &'b [(Token, bool, &'a [u8])])
-{
+fn next<'a, 'b>(
+  source: &'b [(Token, bool, &'a [u8])],
+) -> ((Token, bool, &'a [u8]), &'b [(Token, bool, &'a [u8])]) {
   match source.split_first() {
   | None => ((Token::Eof, false, &[]), &[]),
   | Some((&(x, y, z), source)) => ((x, y, z), source),
@@ -115,7 +115,10 @@ impl<'a, 'b> Parser<'a, 'b> {
     loop {
       match self.token() {
       | Token::Eof => break,
-      | Token::Fun => if let Err(_) = self.parse_fun() { break; },
+      | Token::Fun =>
+        if let Err(_) = self.parse_fun() {
+          break;
+        },
       | _ => break, // TODO: error?
       }
     }
@@ -168,7 +171,10 @@ impl<'a, 'b> Parser<'a, 'b> {
     let n = self.parse_block();
     self.on_fun(name, m, n);
     let e = replace(&mut self.error, None);
-    match e { None => Ok(()), Some(e) => Err(e), }
+    match e {
+    | None => Ok(()),
+    | Some(e) => Err(e),
+    }
   }
 
   fn parse_bind_list(&mut self, stop: Token) -> usize {
@@ -178,7 +184,9 @@ impl<'a, 'b> Parser<'a, 'b> {
         let name = self.parse_name();
         self.on_bind(name);
         n_binds += 1;
-        if self.token() != Token::Comma { break; }
+        if self.token() != Token::Comma {
+          break;
+        }
         self.next();
       }
     }
@@ -195,7 +203,9 @@ impl<'a, 'b> Parser<'a, 'b> {
       loop {
         self.parse_expr();
         n_exprs += 1;
-        if self.token() != Token::Comma { break; }
+        if self.token() != Token::Comma {
+          break;
+        }
         self.next();
       }
     }
@@ -211,217 +221,217 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   fn parse_prec(&mut self, p: Priority, is_stmt: bool) -> bool {
     match self.token() {
-      Token::LParen => {
+    | Token::LParen => {
+      self.next();
+      self.parse_expr();
+      self.parse_token(Token::RParen);
+    }
+    | Token::True => {
+      self.next();
+      self.on_literal_bool(true);
+    }
+    | Token::False => {
+      self.next();
+      self.on_literal_bool(false);
+    }
+    | Token::Int => {
+      let value = self.token_str();
+      self.next();
+      self.on_literal_int(value);
+    }
+    | Token::Symbol => {
+      let symbol = self.token_symbol();
+      self.next();
+      match self.token() {
+      | Token::Equal if is_stmt => {
         self.next();
         self.parse_expr();
-        self.parse_token(Token::RParen);
+        self.on_set_local(symbol);
+        return true;
       }
-      Token::True => {
+      | Token::AddEqual if is_stmt => {
         self.next();
-        self.on_literal_bool(true);
-      }
-      Token::False => {
-        self.next();
-        self.on_literal_bool(false);
-      }
-      Token::Int => {
-        let value = self.token_str();
-        self.next();
-        self.on_literal_int(value);
-      }
-      Token::Symbol => {
-        let symbol = self.token_symbol();
-        self.next();
-        match self.token() {
-          Token::Equal if is_stmt => {
-            self.next();
-            self.parse_expr();
-            self.on_set_local(symbol);
-            return true;
-          }
-          Token::AddEqual if is_stmt => {
-            self.next();
-            self.parse_expr();
-            self.on_set_local_compound(symbol, Op2::Add);
-            return true;
-          }
-          Token::SubEqual if is_stmt => {
-            self.next();
-            self.parse_expr();
-            self.on_set_local_compound(symbol, Op2::Add);
-            return true;
-          }
-          _ => {
-            self.on_variable(symbol);
-          }
-        }
-      }
-      Token::BitXor => {
-        self.next();
-        self.parse_expr_prec(Priority::Unary);
-        self.on_op1(Op1::BitComplement);
-      }
-      Token::Sub => {
-        self.next();
-        self.parse_expr_prec(Priority::Unary);
-        self.on_op1(Op1::Neg);
-      }
-      Token::Not => {
-        self.next();
-        self.parse_expr_prec(Priority::Unary);
-        self.on_not();
-      }
-      Token::If => {
-        self.next();
-        self.parse_token(Token::LParen);
         self.parse_expr();
-        self.parse_token(Token::RParen);
-        let n = self.parse_block();
-        if self.token() == Token::Else {
-          self.next();
-          let m = self.parse_block();
-          self.on_if_else(n, m);
-        } else {
-          self.on_if(n);
-        }
+        self.on_set_local_compound(symbol, Op2::Add);
+        return true;
       }
-      Token::Loop => {
+      | Token::SubEqual if is_stmt => {
         self.next();
-        let n = self.parse_block();
-        self.on_loop(n);
+        self.parse_expr();
+        self.on_set_local_compound(symbol, Op2::Add);
+        return true;
       }
-      _ => {
-        self.on_fail_expr(ParseError::ExpectedExpression);
-        return false;
+      | _ => {
+        self.on_variable(symbol);
       }
+      }
+    }
+    | Token::BitXor => {
+      self.next();
+      self.parse_expr_prec(Priority::Unary);
+      self.on_op1(Op1::BitComplement);
+    }
+    | Token::Sub => {
+      self.next();
+      self.parse_expr_prec(Priority::Unary);
+      self.on_op1(Op1::Neg);
+    }
+    | Token::Not => {
+      self.next();
+      self.parse_expr_prec(Priority::Unary);
+      self.on_not();
+    }
+    | Token::If => {
+      self.next();
+      self.parse_token(Token::LParen);
+      self.parse_expr();
+      self.parse_token(Token::RParen);
+      let n = self.parse_block();
+      if self.token() == Token::Else {
+        self.next();
+        let m = self.parse_block();
+        self.on_if_else(n, m);
+      } else {
+        self.on_if(n);
+      }
+    }
+    | Token::Loop => {
+      self.next();
+      let n = self.parse_block();
+      self.on_loop(n);
+    }
+    | _ => {
+      self.on_fail_expr(ParseError::ExpectedExpression);
+      return false;
+    }
     }
 
     loop {
       match self.token() {
-        Token::ShortCircuitOr if p <= Priority::ShortCircuitOr => {
-          self.next();
-          self.parse_expr_prec(Priority::ShortCircuitOr);
-          self.on_short_circuit_or();
-        }
-        Token::ShortCircuitAnd if p <= Priority::ShortCircuitAnd => {
-          self.next();
-          self.parse_expr_prec(Priority::ShortCircuitAnd);
-          self.on_short_circuit_and();
-        }
-        Token::CmpEq if p < Priority::Cmp => {
-          self.next();
-          self.parse_expr_prec(Priority::Cmp);
-          self.on_cmp(Cmp::Eq);
-        }
-        Token::CmpGe if p < Priority::Cmp => {
-          self.next();
-          self.parse_expr_prec(Priority::Cmp);
-          self.on_cmp(Cmp::Ge);
-        }
-        Token::CmpGt if p < Priority::Cmp => {
-          self.next();
-          self.parse_expr_prec(Priority::Cmp);
-          self.on_cmp(Cmp::Gt);
-        }
-        Token::CmpLe if p < Priority::Cmp => {
-          self.next();
-          self.parse_expr_prec(Priority::Cmp);
-          self.on_cmp(Cmp::Le);
-        }
-        Token::CmpLt if p < Priority::Cmp => {
-          self.next();
-          self.parse_expr_prec(Priority::Cmp);
-          self.on_cmp(Cmp::Lt);
-        }
-        Token::CmpNe if p < Priority::Cmp => {
-          self.next();
-          self.parse_expr_prec(Priority::Cmp);
-          self.on_cmp(Cmp::Ne);
-        }
-        Token::BitOr if p < Priority::Add => {
-          self.next();
-          self.parse_expr_prec(Priority::Add);
-          self.on_op2(Op2::BitOr);
-        }
-        Token::BitXor if p < Priority::Add => {
-          self.next();
-          self.parse_expr_prec(Priority::Add);
-          self.on_op2(Op2::BitXor);
-        }
-        Token::BitAnd if p < Priority::Mul => {
-          self.next();
-          self.parse_expr_prec(Priority::Mul);
-          self.on_op2(Op2::BitAnd);
-        }
-        Token::Shl if p < Priority::Mul => {
-          self.next();
-          self.parse_expr_prec(Priority::Mul);
-          self.on_op2(Op2::Shl);
-        }
-        Token::Shr if p < Priority::Mul => {
-          self.next();
-          self.parse_expr_prec(Priority::Mul);
-          self.on_op2(Op2::Shr);
-        }
-        Token::Add if p < Priority::Add => {
-          self.next();
-          self.parse_expr_prec(Priority::Add);
-          self.on_op2(Op2::Add);
-        }
-        Token::Sub if p < Priority::Add => {
-          self.next();
-          self.parse_expr_prec(Priority::Add);
-          self.on_op2(Op2::Sub);
-        }
-        Token::Div if p < Priority::Mul => {
-          self.next();
-          self.parse_expr_prec(Priority::Mul);
-          self.on_op2(Op2::Div);
-        }
-        Token::Mul if p < Priority::Mul => {
-          self.next();
-          self.parse_expr_prec(Priority::Mul);
-          self.on_op2(Op2::Mul);
-        }
-        Token::Rem if p < Priority::Mul => {
-          self.next();
-          self.parse_expr_prec(Priority::Mul);
-          self.on_op2(Op2::Rem);
-        }
-        Token::Dot if self.token_is_attached() => {
-          self.next();
-          let field = self.parse_path_segment();
-          if is_stmt && self.token() == Token::Equal {
-            self.next();
-            self.parse_expr();
-            self.on_set_field(field);
-            return true;
-          } else {
-            self.on_get_field(field);
-          }
-        }
-        Token::LBracket if self.token_is_attached() => {
+      | Token::ShortCircuitOr if p <= Priority::ShortCircuitOr => {
+        self.next();
+        self.parse_expr_prec(Priority::ShortCircuitOr);
+        self.on_short_circuit_or();
+      }
+      | Token::ShortCircuitAnd if p <= Priority::ShortCircuitAnd => {
+        self.next();
+        self.parse_expr_prec(Priority::ShortCircuitAnd);
+        self.on_short_circuit_and();
+      }
+      | Token::CmpEq if p < Priority::Cmp => {
+        self.next();
+        self.parse_expr_prec(Priority::Cmp);
+        self.on_cmp(Cmp::Eq);
+      }
+      | Token::CmpGe if p < Priority::Cmp => {
+        self.next();
+        self.parse_expr_prec(Priority::Cmp);
+        self.on_cmp(Cmp::Ge);
+      }
+      | Token::CmpGt if p < Priority::Cmp => {
+        self.next();
+        self.parse_expr_prec(Priority::Cmp);
+        self.on_cmp(Cmp::Gt);
+      }
+      | Token::CmpLe if p < Priority::Cmp => {
+        self.next();
+        self.parse_expr_prec(Priority::Cmp);
+        self.on_cmp(Cmp::Le);
+      }
+      | Token::CmpLt if p < Priority::Cmp => {
+        self.next();
+        self.parse_expr_prec(Priority::Cmp);
+        self.on_cmp(Cmp::Lt);
+      }
+      | Token::CmpNe if p < Priority::Cmp => {
+        self.next();
+        self.parse_expr_prec(Priority::Cmp);
+        self.on_cmp(Cmp::Ne);
+      }
+      | Token::BitOr if p < Priority::Add => {
+        self.next();
+        self.parse_expr_prec(Priority::Add);
+        self.on_op2(Op2::BitOr);
+      }
+      | Token::BitXor if p < Priority::Add => {
+        self.next();
+        self.parse_expr_prec(Priority::Add);
+        self.on_op2(Op2::BitXor);
+      }
+      | Token::BitAnd if p < Priority::Mul => {
+        self.next();
+        self.parse_expr_prec(Priority::Mul);
+        self.on_op2(Op2::BitAnd);
+      }
+      | Token::Shl if p < Priority::Mul => {
+        self.next();
+        self.parse_expr_prec(Priority::Mul);
+        self.on_op2(Op2::Shl);
+      }
+      | Token::Shr if p < Priority::Mul => {
+        self.next();
+        self.parse_expr_prec(Priority::Mul);
+        self.on_op2(Op2::Shr);
+      }
+      | Token::Add if p < Priority::Add => {
+        self.next();
+        self.parse_expr_prec(Priority::Add);
+        self.on_op2(Op2::Add);
+      }
+      | Token::Sub if p < Priority::Add => {
+        self.next();
+        self.parse_expr_prec(Priority::Add);
+        self.on_op2(Op2::Sub);
+      }
+      | Token::Div if p < Priority::Mul => {
+        self.next();
+        self.parse_expr_prec(Priority::Mul);
+        self.on_op2(Op2::Div);
+      }
+      | Token::Mul if p < Priority::Mul => {
+        self.next();
+        self.parse_expr_prec(Priority::Mul);
+        self.on_op2(Op2::Mul);
+      }
+      | Token::Rem if p < Priority::Mul => {
+        self.next();
+        self.parse_expr_prec(Priority::Mul);
+        self.on_op2(Op2::Rem);
+      }
+      | Token::Dot if self.token_is_attached() => {
+        self.next();
+        let field = self.parse_path_segment();
+        if is_stmt && self.token() == Token::Equal {
           self.next();
           self.parse_expr();
-          self.parse_token(Token::RBracket);
-          if is_stmt && self.token() == Token::Equal {
-            self.next();
-            self.parse_expr();
-            self.on_set_index();
-            return true;
-          } else {
-            self.on_get_index();
-          }
+          self.on_set_field(field);
+          return true;
+        } else {
+          self.on_get_field(field);
         }
-        Token::LParen if self.token_is_attached() => {
+      }
+      | Token::LBracket if self.token_is_attached() => {
+        self.next();
+        self.parse_expr();
+        self.parse_token(Token::RBracket);
+        if is_stmt && self.token() == Token::Equal {
           self.next();
-          let n_args = self.parse_expr_list(Token::RParen);
-          self.parse_token(Token::RParen);
-          self.on_call(n_args);
+          self.parse_expr();
+          self.on_set_index();
+          return true;
+        } else {
+          self.on_get_index();
         }
-        _ => {
-          return false;
-        }
+      }
+      | Token::LParen if self.token_is_attached() => {
+        self.next();
+        let n_args = self.parse_expr_list(Token::RParen);
+        self.parse_token(Token::RParen);
+        self.on_call(n_args);
+      }
+      | _ => {
+        return false;
+      }
       }
     }
   }
@@ -436,99 +446,101 @@ impl<'a, 'b> Parser<'a, 'b> {
 
     loop {
       match self.token() {
-        token if token == stop => {
+      | token if token == stop => {
+        self.next();
+        break;
+      }
+      | Token::Break => {
+        self.next();
+        let n_args = self.parse_expr_list(stop);
+        self.on_break(n_args);
+        n_stmts += 1;
+        self.parse_token(stop);
+        break;
+      }
+      | Token::Continue => {
+        self.next();
+        self.on_continue();
+        n_stmts += 1;
+        self.parse_token(stop);
+        break;
+      }
+      | Token::Let => {
+        self.next();
+        if self.token() == Token::Mut {
           self.next();
-          break;
-        }
-        Token::Break => {
-          self.next();
-          let n_args = self.parse_expr_list(stop);
-          self.on_break(n_args);
-          n_stmts += 1;
-          self.parse_token(stop);
-          break;
-        }
-        Token::Continue => {
-          self.next();
-          self.on_continue();
-          n_stmts += 1;
-          self.parse_token(stop);
-          break;
-        }
-        Token::Let => {
-          self.next();
-          if self.token() == Token::Mut {
-            self.next();
-            let name = self.parse_name();
-            self.parse_token(Token::Equal);
-            self.parse_expr();
-            self.on_let_mut(name);
-            n_stmts += 1;
-          } else {
-            // NB: we allow a list of zero binds, like
-            //
-            //   let = f(x)
-            //
-            // which is a bit weird. but works semantically
-            let n_binds = self.parse_bind_list(Token::Equal);
-            self.parse_token(Token::Equal);
-            let mut n_exprs = 0;
-            loop {
-              self.parse_expr();
-              n_exprs += 1;
-              if self.token() != Token::Comma { break; }
-              self.next();
-            }
-            self.on_let(n_binds, n_exprs);
-            n_stmts += 1;
-          }
-        }
-        Token::Return => {
-          self.next();
-          let n_args = self.parse_expr_list(stop);
-          self.on_return(n_args);
-          n_stmts += 1;
-          self.parse_token(stop);
-          break;
-        }
-        Token::While => {
-          self.next();
-          self.parse_token(Token::LParen);
+          let name = self.parse_name();
+          self.parse_token(Token::Equal);
           self.parse_expr();
-          self.parse_token(Token::RParen);
-          let n = self.parse_block();
-          self.on_while(n);
+          self.on_let_mut(name);
           n_stmts += 1;
-        }
-        _ => {
-          let stmt_start = self.token_index();
-
-          if ! self.parse_prec(Priority::Any, true) {
-            let mut n_exprs = 1;
-            while self.token() == Token::Comma {
-              self.next();
-              self.parse_expr();
-              n_exprs += 1;
+        } else {
+          // NB: we allow a list of zero binds, like
+          //
+          //   let = f(x)
+          //
+          // which is a bit weird. but works semantically
+          let n_binds = self.parse_bind_list(Token::Equal);
+          self.parse_token(Token::Equal);
+          let mut n_exprs = 0;
+          loop {
+            self.parse_expr();
+            n_exprs += 1;
+            if self.token() != Token::Comma {
+              break;
             }
-            // NB: n_exprs >= 1
-            self.on_stmt_expr_list(n_exprs);
+            self.next();
           }
-
+          self.on_let(n_binds, n_exprs);
           n_stmts += 1;
-
-          if self.token_index() == stmt_start {
-            // NB: If we couldn't parse anything at all, then we immediately
-            // close the block so that we don't get stuck in an infinite loop.
-            //
-            // Note that we already know that there ISN'T a `stop` token here,
-            // so the expect will fail.
-            //
-            // Also, note that in this case we still emit a `fail` expr/stmt.
-
-            self.parse_token(stop);
-            break;
-          }
         }
+      }
+      | Token::Return => {
+        self.next();
+        let n_args = self.parse_expr_list(stop);
+        self.on_return(n_args);
+        n_stmts += 1;
+        self.parse_token(stop);
+        break;
+      }
+      | Token::While => {
+        self.next();
+        self.parse_token(Token::LParen);
+        self.parse_expr();
+        self.parse_token(Token::RParen);
+        let n = self.parse_block();
+        self.on_while(n);
+        n_stmts += 1;
+      }
+      | _ => {
+        let stmt_start = self.token_index();
+
+        if ! self.parse_prec(Priority::Any, true) {
+          let mut n_exprs = 1;
+          while self.token() == Token::Comma {
+            self.next();
+            self.parse_expr();
+            n_exprs += 1;
+          }
+          // NB: n_exprs >= 1
+          self.on_stmt_expr_list(n_exprs);
+        }
+
+        n_stmts += 1;
+
+        if self.token_index() == stmt_start {
+          // NB: If we couldn't parse anything at all, then we immediately
+          // close the block so that we don't get stuck in an infinite loop.
+          //
+          // Note that we already know that there ISN'T a `stop` token here,
+          // so the expect will fail.
+          //
+          // Also, note that in this case we still emit a `fail` expr/stmt.
+
+          self.parse_token(stop);
+          break;
+        }
+      }
       }
     }
 
@@ -572,7 +584,11 @@ impl<'a, 'b> Parser<'a, 'b> {
   fn on_fun(&mut self, name: Option<Symbol>, n_args: usize, n_stmts: usize) {
     let z = self.pop_stmt_list(n_stmts);
     let y = self.pop_bind_list(n_args);
-    self.push_item(Item::Fun(Box::new(Fun { name, args: y, body: z })));
+    self.push_item(Item::Fun(Box::new(Fun {
+      name,
+      args: y,
+      body: z,
+    })));
   }
 
   fn on_bind(&mut self, name: Option<Symbol>) {
@@ -589,10 +605,8 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   fn on_literal_int(&mut self, x: &str) {
     match i64::from_str_radix(x, 10) {
-      Err(_) =>
-        self.on_fail_expr(ParseError::MalformedInt),
-      Ok(n) =>
-        self.push_expr(Expr::LiteralI64(n)),
+    | Err(_) => self.on_fail_expr(ParseError::MalformedInt),
+    | Ok(n) => self.push_expr(Expr::LiteralI64(n)),
     }
   }
 
@@ -731,6 +745,8 @@ impl<'a, 'b> Parser<'a, 'b> {
 
   fn on_error(&mut self, e: ParseError) {
     // TODO: mark error location
-    if let None = self.error { self.error = Some(e); }
+    if let None = self.error {
+      self.error = Some(e);
+    }
   }
 }

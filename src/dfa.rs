@@ -1,4 +1,3 @@
-
 #[inline(never)]
 pub fn next(x: u64, t: &[[u64; 1]; 256], b: [u8; 5]) -> u64 {
   let mut x = x;

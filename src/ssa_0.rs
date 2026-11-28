@@ -85,9 +85,9 @@ pub enum Op2 {
 impl std::fmt::Display for Cmp {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::Eq => write!(f, "=="),
-      Self::Le => write!(f, "<="),
-      Self::Lt => write!(f, "<"),
+    | Self::Eq => write!(f, "=="),
+    | Self::Le => write!(f, "<="),
+    | Self::Lt => write!(f, "<"),
     }
   }
 }
@@ -95,8 +95,8 @@ impl std::fmt::Display for Cmp {
 impl std::fmt::Display for Op1 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::BitComplement => write!(f, "^"),
-      Self::Neg => write!(f, "-"),
+    | Self::BitComplement => write!(f, "^"),
+    | Self::Neg => write!(f, "-"),
     }
   }
 }
@@ -104,16 +104,16 @@ impl std::fmt::Display for Op1 {
 impl std::fmt::Display for Op2 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::Add => write!(f, "+"),
-      Self::BitAnd => write!(f, "&"),
-      Self::BitOr => write!(f, "|"),
-      Self::BitXor => write!(f, "^"),
-      Self::Div => write!(f, "/"),
-      Self::Mul => write!(f, "*"),
-      Self::Rem => write!(f, "%"),
-      Self::Shl => write!(f, "<<"),
-      Self::Shr => write!(f, ">>"),
-      Self::Sub => write!(f, "-"),
+    | Self::Add => write!(f, "+"),
+    | Self::BitAnd => write!(f, "&"),
+    | Self::BitOr => write!(f, "|"),
+    | Self::BitXor => write!(f, "^"),
+    | Self::Div => write!(f, "/"),
+    | Self::Mul => write!(f, "*"),
+    | Self::Rem => write!(f, "%"),
+    | Self::Shl => write!(f, "<<"),
+    | Self::Shr => write!(f, ">>"),
+    | Self::Sub => write!(f, "-"),
     }
   }
 }
@@ -121,30 +121,29 @@ impl std::fmt::Display for Op2 {
 impl std::fmt::Display for Inst {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::Label(n, k) => write!(f, "LABEL {} {}", n, k),
-      Self::Pop(i) => write!(f, "= POP {}", i),
-      Self::Put(i, x) => write!(f, "PUT {} %{}", i, x),
-      Self::Const(s) => write!(f, "= CONST {}", s),
-      Self::ConstBool(p) => write!(f, "= {}", p),
-      Self::ConstI64(n) => write!(f, "= {}", n),
-      Self::DefLocal(x) => write!(f, "= DEF-LOCAL %{}", x),
-      Self::GetLocal(v) => write!(f, "= [ %{} ]", v),
-      Self::SetLocal(v, x) => write!(f, "[ %{} ] <- %{}", v, x),
-      Self::GetField(x, s) => write!(f, "= %{} [ .{} ]", x, s),
-      Self::SetField(x, s, y) => write!(f, "%{} [ .{} ] <- %{}", x, s, y),
-      Self::GetIndex(x, y) => write!(f, "= %{} [ %{} ]", x, y),
-      Self::SetIndex(x, y, z) => write!(f, "%{} [ %{} ] <- %{}", x, y, z),
-      Self::Cmp(op, x, y) => write!(f, "= CMP %{} {} %{}", x, op, y),
-      Self::Not(x) => write!(f, "= NOT %{}", x),
-      Self::Op1(op, x) => write!(f, "= OP1 {} %{}", op, x),
-      Self::Op2(op, x, y) => write!(f, "= OP2 %{} {} %{}", x, op, y),
-      Self::Jump(a) => write!(f, "JUMP ==> %{}", a),
-      Self::Cond(x, a, b) => write!(f, "COND %{} ==> %{} %{}", x, a, b),
-      Self::Call(x, a) => write!(f, "CALL %{} ==> %{}", x, a),
-      Self::TailCall(x) => write!(f, "TAIL-CALL %{}", x),
-      Self::Ret => write!(f, "RET"),
-      Self::Fail => write!(f, "==> FAIL"),
-
+    | Self::Label(n, k) => write!(f, "LABEL {} {}", n, k),
+    | Self::Pop(i) => write!(f, "= POP {}", i),
+    | Self::Put(i, x) => write!(f, "PUT {} %{}", i, x),
+    | Self::Const(s) => write!(f, "= CONST {}", s),
+    | Self::ConstBool(p) => write!(f, "= {}", p),
+    | Self::ConstI64(n) => write!(f, "= {}", n),
+    | Self::DefLocal(x) => write!(f, "= DEF-LOCAL %{}", x),
+    | Self::GetLocal(v) => write!(f, "= [ %{} ]", v),
+    | Self::SetLocal(v, x) => write!(f, "[ %{} ] <- %{}", v, x),
+    | Self::GetField(x, s) => write!(f, "= %{} [ .{} ]", x, s),
+    | Self::SetField(x, s, y) => write!(f, "%{} [ .{} ] <- %{}", x, s, y),
+    | Self::GetIndex(x, y) => write!(f, "= %{} [ %{} ]", x, y),
+    | Self::SetIndex(x, y, z) => write!(f, "%{} [ %{} ] <- %{}", x, y, z),
+    | Self::Cmp(op, x, y) => write!(f, "= CMP %{} {} %{}", x, op, y),
+    | Self::Not(x) => write!(f, "= NOT %{}", x),
+    | Self::Op1(op, x) => write!(f, "= OP1 {} %{}", op, x),
+    | Self::Op2(op, x, y) => write!(f, "= OP2 %{} {} %{}", x, op, y),
+    | Self::Jump(a) => write!(f, "JUMP ==> %{}", a),
+    | Self::Cond(x, a, b) => write!(f, "COND %{} ==> %{} %{}", x, a, b),
+    | Self::Call(x, a) => write!(f, "CALL %{} ==> %{}", x, a),
+    | Self::TailCall(x) => write!(f, "TAIL-CALL %{}", x),
+    | Self::Ret => write!(f, "RET"),
+    | Self::Fail => write!(f, "==> FAIL"),
     }
   }
 }
@@ -152,29 +151,29 @@ impl std::fmt::Display for Inst {
 impl Inst {
   pub fn remap<F: Fn(usize) -> usize>(&self, f: F) -> Self {
     match self {
-      &Self::Label(m, n) => Self::Label(m, n),
-      &Self::Pop(_) => *self,
-      &Self::Put(i, x) => Self::Put(i, f(x)),
-      &Self::Const(_) => *self,
-      &Self::ConstBool(_) => *self,
-      &Self::ConstI64(_) => *self,
-      &Self::DefLocal(v) => Self::DefLocal(f(v)),
-      &Self::GetLocal(v) => Self::GetLocal(f(v)),
-      &Self::SetLocal(v, x) => Self::SetLocal(f(v), f(x)),
-      &Self::GetField(x, s) => Self::GetField(f(x), s),
-      &Self::SetField(x, s, y) => Self::SetField(f(x), s, f(y)),
-      &Self::GetIndex(x, y) => Self::GetIndex(f(x), f(y)),
-      &Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
-      &Self::Cmp(op, x, y) => Self::Cmp(op, f(x), f(y)),
-      &Self::Not(x) => Self::Not(f(x)),
-      &Self::Op1(op, x) => Self::Op1(op, f(x)),
-      &Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
-      &Self::Jump(a) => Self::Jump(f(a)),
-      &Self::Cond(x, a, b) => Self::Cond(f(x), f(a), f(b)),
-      &Self::Call(x, a) => Self::Call(f(x), f(a)),
-      &Self::TailCall(x) => Self::TailCall(f(x)),
-      &Self::Ret => *self,
-      &Self::Fail => *self,
+    | &Self::Label(m, n) => Self::Label(m, n),
+    | &Self::Pop(_) => *self,
+    | &Self::Put(i, x) => Self::Put(i, f(x)),
+    | &Self::Const(_) => *self,
+    | &Self::ConstBool(_) => *self,
+    | &Self::ConstI64(_) => *self,
+    | &Self::DefLocal(v) => Self::DefLocal(f(v)),
+    | &Self::GetLocal(v) => Self::GetLocal(f(v)),
+    | &Self::SetLocal(v, x) => Self::SetLocal(f(v), f(x)),
+    | &Self::GetField(x, s) => Self::GetField(f(x), s),
+    | &Self::SetField(x, s, y) => Self::SetField(f(x), s, f(y)),
+    | &Self::GetIndex(x, y) => Self::GetIndex(f(x), f(y)),
+    | &Self::SetIndex(x, y, z) => Self::SetIndex(f(x), f(y), f(z)),
+    | &Self::Cmp(op, x, y) => Self::Cmp(op, f(x), f(y)),
+    | &Self::Not(x) => Self::Not(f(x)),
+    | &Self::Op1(op, x) => Self::Op1(op, f(x)),
+    | &Self::Op2(op, x, y) => Self::Op2(op, f(x), f(y)),
+    | &Self::Jump(a) => Self::Jump(f(a)),
+    | &Self::Cond(x, a, b) => Self::Cond(f(x), f(a), f(b)),
+    | &Self::Call(x, a) => Self::Call(f(x), f(a)),
+    | &Self::TailCall(x) => Self::TailCall(f(x)),
+    | &Self::Ret => *self,
+    | &Self::Fail => *self,
     }
   }
 
@@ -185,10 +184,8 @@ impl Inst {
     | &Self::Call(..)
     | &Self::TailCall(..)
     | &Self::Ret
-    | &Self::Fail =>
-      true,
-    | _ =>
-      false,
+    | &Self::Fail => true,
+    | _ => false,
     }
   }
 }
@@ -199,11 +196,14 @@ struct IterBlockInsts<'a> {
   index: usize,
 }
 
-pub fn iter_block_insts<'a>(code: &'a [Inst], index: usize) -> impl Iterator<Item = (usize, &'a Inst)> {
+pub fn iter_block_insts<'a>(
+  code: &'a [Inst],
+  index: usize,
+) -> impl Iterator<Item = (usize, &'a Inst)> {
   IterBlockInsts {
     code,
     start: index,
-    index: index,
+    index,
   }
 }
 

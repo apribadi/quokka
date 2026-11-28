@@ -56,18 +56,18 @@ pub struct Bind {
 
 #[derive(Clone, Copy, Debug)]
 pub enum Cmp {
-  Eq,  // a == b
-  Ge,  // a >= b
-  Gt,  // a > b
-  Le,  // a <= b
-  Lt,  // a < b
-  Ne,  // a != b
+  Eq, // a == b
+  Ge, // a >= b
+  Gt, // a > b
+  Le, // a <= b
+  Lt, // a < b
+  Ne, // a != b
 }
 
 #[derive(Clone, Copy, Debug)]
 pub enum Op1 {
   BitComplement, // ^ a
-  Neg, // - a
+  Neg,           // - a
 }
 
 #[derive(Clone, Copy, Debug)]

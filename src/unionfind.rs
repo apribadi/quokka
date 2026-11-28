@@ -136,8 +136,8 @@ impl<T: std::fmt::Display> std::fmt::Display for UnionFind<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     for i in 0 .. self.0.len() {
       match &self.0[i] {
-        &Node::Link(ref a) => write!(f, "{}: => {}\n", i, a.get())?,
-        &Node::Root(ref a) => write!(f, "{}: {}\n", i, a)?,
+      | &Node::Link(ref a) => write!(f, "{}: => {}\n", i, a.get())?,
+      | &Node::Root(ref a) => write!(f, "{}: {}\n", i, a)?,
       }
     }
     Ok(())

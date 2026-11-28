@@ -7,11 +7,14 @@ use expect_test::expect;
 fn test_projection() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun foo(x) {
       x.a.b[1].c-c-c(2, 3)
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun foo ===

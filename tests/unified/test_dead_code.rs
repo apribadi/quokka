@@ -7,7 +7,9 @@ use expect_test::expect;
 fn test_dead_code() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun foo(p) {
       if (p) {
         return 1
@@ -17,7 +19,8 @@ fn test_dead_code() {
       3
     }
     fun id(x) { x }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun foo ===

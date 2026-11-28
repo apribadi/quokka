@@ -7,12 +7,15 @@ use expect_test::expect;
 fn test_loop() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun foo() { loop { break 1 } }
     fun bar() { loop { continue } }
     fun baz() { loop { return 1 } }
     fun qux() { let x, y = loop { break 1, 2 } return x + y }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun foo ===
@@ -44,7 +47,9 @@ fn test_loop() {
 fn test_loop_nest() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun foo(x) {
       let y =
         loop {
@@ -57,7 +62,8 @@ fn test_loop_nest() {
         }
       return y
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun foo ===

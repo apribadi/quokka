@@ -7,11 +7,14 @@ use expect_test::expect;
 fn test_id() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun id(x) {
       x
     }
-  ");
+    ",
+  );
 
   expect![[r#"
       === fun id ===
@@ -26,7 +29,9 @@ fn test_id() {
 fn test_apply() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun app1(f, x) { f(x) }
     fun app2(f, x, y) { f(x, y) }
     fun id(x) { x }
@@ -34,7 +39,8 @@ fn test_apply() {
     fun foo(x) { app1(id, x) }
     fun bar(x, y) { app2(flip, x, y) }
     fun baz(x) { app2(app1, id, x) }
-  ");
+    ",
+  );
 
   expect![[r#"
       === fun app1 ===

@@ -161,51 +161,51 @@ static TRANSITION: [[u8; 32]; 256] = {
 
 fn classify(last_state: u8, span: &[u8]) -> Token {
   match last_state {
-    4 | 5 | 6 | 7 | 9 =>
-      unsafe { std::mem::transmute::<u8, Token>(*span.get_unchecked(0)) },
-    8 | B | C | K =>
-      Token::Int,
-    H =>
-      match span.len() {
-        3 => Token::DotDotDot,
-        _ => Token::Error,
-      }
-    J =>
-      match span {
-        b"==" => Token::CmpEq,
-        b">=" => Token::CmpGe,
-        b"<=" => Token::CmpLe,
-        b"!=" => Token::CmpNe,
-        b"<<" => Token::Shl,
-        b">>" => Token::Shr,
-        b"+=" => Token::AddEqual,
-        b"-=" => Token::SubEqual,
-        b"&&" => Token::ShortCircuitAnd,
-        b"||" => Token::ShortCircuitOr,
-        _ => Token::Error,
-      },
-    A | L =>
-      match span {
-        b"break" => Token::Break,
-        b"continue" => Token::Continue,
-        b"do" => Token::Do,
-        b"elif" => Token::Elif,
-        b"else" => Token::Else,
-        b"false" => Token::False,
-        b"for" => Token::For,
-        b"fun" => Token::Fun,
-        b"if" => Token::If,
-        b"let" => Token::Let,
-        b"loop" => Token::Loop,
-        b"mut" => Token::Mut,
-        b"return" => Token::Return,
-        b"true" => Token::True,
-        b"while" => Token::While,
-        _ => Token::Symbol,
-      },
-    G =>
-      Token::Quote,
-    _ =>
-      Token::Error,
+  | 4 | 5 | 6 | 7 | 9 =>
+    unsafe { std::mem::transmute::<u8, Token>(*span.get_unchecked(0)) },
+  | 8 | B | C | K =>
+    Token::Int,
+  | H =>
+    match span.len() {
+      3 => Token::DotDotDot,
+      _ => Token::Error,
+    }
+  | J =>
+    match span {
+      b"==" => Token::CmpEq,
+      b">=" => Token::CmpGe,
+      b"<=" => Token::CmpLe,
+      b"!=" => Token::CmpNe,
+      b"<<" => Token::Shl,
+      b">>" => Token::Shr,
+      b"+=" => Token::AddEqual,
+      b"-=" => Token::SubEqual,
+      b"&&" => Token::ShortCircuitAnd,
+      b"||" => Token::ShortCircuitOr,
+      _ => Token::Error,
+    },
+  | A | L =>
+    match span {
+      b"break" => Token::Break,
+      b"continue" => Token::Continue,
+      b"do" => Token::Do,
+      b"elif" => Token::Elif,
+      b"else" => Token::Else,
+      b"false" => Token::False,
+      b"for" => Token::For,
+      b"fun" => Token::Fun,
+      b"if" => Token::If,
+      b"let" => Token::Let,
+      b"loop" => Token::Loop,
+      b"mut" => Token::Mut,
+      b"return" => Token::Return,
+      b"true" => Token::True,
+      b"while" => Token::While,
+      _ => Token::Symbol,
+    },
+  | G =>
+    Token::Quote,
+  | _ =>
+    Token::Error,
   }
 }

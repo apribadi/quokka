@@ -1,6 +1,6 @@
-pub mod dfa;
 pub mod ast;
 pub mod compile_0;
+pub mod dfa;
 pub mod lexer;
 pub mod parser;
 pub mod prelude;

@@ -5,8 +5,7 @@ pub struct Symbol(NonZeroU64);
 
 pub struct SymbolTable(HashMap<NonZeroU64, String>);
 
-static HASHER: foldhash::quality::FixedState =
-  foldhash::quality::FixedState::with_seed(0);
+static HASHER: foldhash::quality::FixedState = foldhash::quality::FixedState::with_seed(0);
 
 fn intern(s: &str) -> NonZeroU64 {
   if 1 <= s.len() && s.len() <= 8 {
@@ -32,7 +31,9 @@ impl std::fmt::Display for Symbol {
     if is_inline(self.0) {
       let buf = self.0.get().to_le_bytes();
       let mut i = 0;
-      while i < 8 && buf[i] != 0 { i += 1; }
+      while i < 8 && buf[i] != 0 {
+        i += 1;
+      }
       write!(f, "{}", str::from_utf8(&buf[.. i]).unwrap())
     } else {
       write!(f, "Symbol({:#X})", self.0.get())
@@ -49,14 +50,13 @@ impl SymbolTable {
     let n = intern(s);
     if ! is_inline(n) {
       match self.0.entry(n) {
-        Vacant(entry) => {
-          entry.insert(String::from(s));
-        }
-        Occupied(entry) => {
-          if s != entry.get() {
-            panic!("symbol hash collision")
-          }
-        }
+      | Vacant(entry) => {
+        entry.insert(String::from(s));
+      }
+      | Occupied(entry) =>
+        if s != entry.get() {
+          panic!("symbol hash collision")
+        },
       }
     }
     Symbol(n)

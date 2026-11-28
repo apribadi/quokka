@@ -7,7 +7,9 @@ use expect_test::expect;
 fn test_fib_loop() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun fib(n) {
       let mut a = 1
       let mut b = 0
@@ -20,7 +22,8 @@ fn test_fib_loop() {
         n = n - 1
       }
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun fib ===
@@ -60,7 +63,9 @@ fn test_fib_loop() {
 fn test_fib_while() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun fib(n) {
       let mut a = 1
       let mut b = 0
@@ -73,7 +78,8 @@ fn test_fib_while() {
       }
       b
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun fib ===
@@ -114,7 +120,9 @@ fn test_fib_while() {
 fn test_fib_tailcall() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     fun aux(a, b, n) {
       if (n == 0) {
         b
@@ -126,7 +134,8 @@ fn test_fib_tailcall() {
     fun fib(n) {
       aux(1, 0, n)
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun aux ===
@@ -166,7 +175,9 @@ fn test_fib_tailcall() {
 fn test_fib_call() {
   let mut out = String::new();
 
-  test(&mut out, "
+  test(
+    &mut out,
+    "
     ; TODO elif
     fun fib(n) {
       if (n == 0) {
@@ -179,7 +190,8 @@ fn test_fib_call() {
         }
       }
     }
-  ");
+  ",
+  );
 
   expect![[r#"
       === fun fib ===

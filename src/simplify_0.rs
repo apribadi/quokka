@@ -4,8 +4,8 @@
 //! TODO: sparse conditional constant propagation - just for bools
 
 use crate::prelude::*;
-use crate::ssa_0::Inst;
 use crate::ssa_0::FunDef;
+use crate::ssa_0::Inst;
 use crate::ssa_0::Module;
 use crate::ssa_0::iter_block_insts;
 
@@ -14,13 +14,12 @@ pub fn simplify(module: Module) -> Module {
   let mut o_code = Vec::new();
   let mut o_funs = Vec::new();
   let mut remap = vec![Remap::None; code.len()];
-  let mut g =
-    Graph {
-      todo: Vec::new(),
-      seen: HashSet::new(),
-      prev: HashMap::new(),
-      next: HashMap::new(),
-    };
+  let mut g = Graph {
+    todo: Vec::new(),
+    seen: HashSet::new(),
+    prev: HashMap::new(),
+    next: HashMap::new(),
+  };
   let mut arg = Vec::new();
   let mut out = Vec::new();
   for f in funs.iter() {
@@ -30,18 +29,17 @@ pub fn simplify(module: Module) -> Module {
     while let Some(i) = g.todo.pop() {
       for (_, inst) in iter_block_insts(&code, i) {
         match inst {
-          &Inst::Jump(a) => {
-            mark(&mut g, i, a, true);
-          }
-          &Inst::Cond(_, a, b) => {
-            mark(&mut g, i, a, false);
-            mark(&mut g, i, b, false);
-          }
-          &Inst::Call(_, a) => {
-            mark(&mut g, i, a, false);
-          }
-          _ => {
-          }
+        | &Inst::Jump(a) => {
+          mark(&mut g, i, a, true);
+        }
+        | &Inst::Cond(_, a, b) => {
+          mark(&mut g, i, a, false);
+          mark(&mut g, i, b, false);
+        }
+        | &Inst::Call(_, a) => {
+          mark(&mut g, i, a, false);
+        }
+        | _ => {}
         }
       }
     }
@@ -54,28 +52,30 @@ pub fn simplify(module: Module) -> Module {
         loop {
           let has_next = g.next.contains_key(&i);
           if has_next {
-            let Inst::Label(_, n) = code[i] else { unreachable!() };
+            let Inst::Label(_, n) = code[i] else {
+              unreachable!()
+            };
             out.extend((0 .. n).map(|_| usize::MAX));
           }
           for (j, &inst) in iter_block_insts(&code, i) {
             match inst {
-              Inst::Pop(k) if has_prev => {
-                remap[j] = Remap::Alias(arg[k]);
-              }
-              Inst::Put(k, x) if has_next => {
-                out[k] = x;
-              }
-              Inst::Label(..) if has_prev => {
-              }
-              Inst::Jump(..) if has_next => {
-              }
-              _ => {
-                remap[j] = Remap::Index(o_code.emit(inst));
-              }
+            | Inst::Pop(k) if has_prev => {
+              remap[j] = Remap::Alias(arg[k]);
+            }
+            | Inst::Put(k, x) if has_next => {
+              out[k] = x;
+            }
+            | Inst::Label(..) if has_prev => {}
+            | Inst::Jump(..) if has_next => {}
+            | _ => {
+              remap[j] = Remap::Index(o_code.emit(inst));
+            }
             }
           }
           arg.clear();
-          if ! has_next { break }
+          if ! has_next {
+            break;
+          }
           i = g.next[&i];
           has_prev = true;
           std::mem::swap(&mut arg, &mut out);
@@ -83,13 +83,11 @@ pub fn simplify(module: Module) -> Module {
       }
     }
     g.reset();
-    o_funs.push(
-      FunDef {
-        name: f.name,
-        pos: o_f_pos,
-        len: o_code.len() - o_f_pos,
-      }
-    );
+    o_funs.push(FunDef {
+      name: f.name,
+      pos: o_f_pos,
+      len: o_code.len() - o_f_pos,
+    });
   }
   let mut resolved = Vec::new();
   for i in 0 .. code.len() {
@@ -116,9 +114,11 @@ fn resolve(remap: &Vec<Remap>, i: usize) -> Option<usize> {
   let mut i = i;
   loop {
     match &remap[i] {
-      &Remap::None => { return None }
-      &Remap::Index(k) => { return Some(k) }
-      &Remap::Alias(k) => { i = k; }
+    | &Remap::None => return None,
+    | &Remap::Index(k) => return Some(k),
+    | &Remap::Alias(k) => {
+      i = k;
+    }
     }
   }
 }
