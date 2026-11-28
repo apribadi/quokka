@@ -546,6 +546,7 @@ impl<'a, 'b> Parser<'a, 'b> {
               self.parse_expr();
               n_exprs += 1;
             }
+            // NB: n_exprs >= 1
             self.on_stmt_expr_list(n_exprs);
           }
 

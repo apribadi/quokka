@@ -21,8 +21,7 @@ pub struct FunDef {
   pub len: usize,
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Inst {
   Label(Arity, Arity),
   Pop(Index),
@@ -181,14 +180,15 @@ impl Inst {
 
   pub fn is_terminal(&self) -> bool {
     match self {
-      | &Self::Jump(..)
-      | &Self::Cond(..)
-      | &Self::Call(..)
-      | &Self::TailCall(..)
-      | &Self::Ret
-      | &Self::Fail
-        => true,
-      _ => false,
+    | &Self::Jump(..)
+    | &Self::Cond(..)
+    | &Self::Call(..)
+    | &Self::TailCall(..)
+    | &Self::Ret
+    | &Self::Fail =>
+      true,
+    | _ =>
+      false,
     }
   }
 }
