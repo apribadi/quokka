@@ -10,7 +10,6 @@ use crate::prelude::*;
 use crate::symbol::Symbol;
 use crate::symbol::SymbolTable;
 use crate::token::Token;
-use std::mem::replace;
 
 // TODO: consider defining a token immediately following a "}" as never attached
 
@@ -132,9 +131,7 @@ impl<'a, 'b> Parser<'a, 'b> {
   fn parse_item_list(&mut self) {
     loop {
       match self.token() {
-        Token::Eof => {
-          break;
-        }
+        Token::Eof => break,
         Token::Fun => {
           if let Err(_) = self.parse_fun() { break; }
         }
@@ -200,7 +197,7 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn parse_fun(&mut self) -> Result<(), ParseError> {
-    assert!(self.token() == Token::Fun);
+    debug_assert!(self.token() == Token::Fun);
     self.next();
     let name = self.parse_name();
     self.parse_lparen();
@@ -625,15 +622,12 @@ impl<'a, 'b> Parser<'a, 'b> {
   }
 
   fn on_literal_int(&mut self, x: &str) {
-    let n =
-      match i64::from_str_radix(x, 10) {
-        Err(_) => {
-          self.on_fail_expr(ParseError::MalformedInt);
-          return;
-        }
-        Ok(n) => n
-      };
-    self.push_expr(Expr::LiteralI64(n));
+    match i64::from_str_radix(x, 10) {
+      Err(_) =>
+        self.on_fail_expr(ParseError::MalformedInt),
+      Ok(n) =>
+        self.push_expr(Expr::LiteralI64(n)),
+    }
   }
 
   fn on_short_circuit_or(&mut self) {

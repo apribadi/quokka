@@ -11,7 +11,6 @@ use crate::ast::Stmt;
 use crate::ssa_0 as ssa;
 use crate::ssa_0::Inst;
 use crate::symbol::Symbol;
-use std::mem::replace;
 
 pub fn compile(item_list: &[ast::Item]) -> ssa::Module {
   let mut ctx = Ctx::new();
